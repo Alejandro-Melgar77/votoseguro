@@ -25,6 +25,7 @@ class VoterStatus(str, enum.Enum):
     INVITED = "INVITED"
     ACTIVE = "ACTIVE"
     BLOCKED = "BLOCKED"
+    PENDING_APPROVAL = "PENDING_APPROVAL"
 
 
 class LinkStatus(str, enum.Enum):
@@ -78,6 +79,10 @@ class Voter(Base):
     invited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     blocked_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

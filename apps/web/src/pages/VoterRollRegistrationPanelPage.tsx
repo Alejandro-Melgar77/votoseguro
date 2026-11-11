@@ -71,10 +71,18 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
 
-  // Pestañas activas: 'voters' | 'import' | 'duplicates' | 'breakdown' | 'links' | 'credentials'
+  // Pestañas activas: 'voters' | 'import' | 'duplicates' | 'breakdown' | 'links' | 'credentials' | 'pending-approval'
   const [activeTab, setActiveTab] = useState<
-    'voters' | 'import' | 'duplicates' | 'breakdown' | 'links' | 'credentials'
+    'voters' | 'import' | 'duplicates' | 'breakdown' | 'links' | 'credentials' | 'pending-approval'
   >('voters');
+
+  // Gestión de Solicitudes de Autoinscripción (S2-10)
+  const [pendingVoters, setPendingVoters] = useState<Voter[]>([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+  const [actionVoterId, setActionVoterId] = useState<string | null>(null);
+  const [rejectModalVoter, setRejectModalVoter] = useState<Voter | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string>('');
+  const [rejectSubmitting, setRejectSubmitting] = useState<boolean>(false);
 
   // Gestión de Enlaces de Registro (S1-08)
   const [links, setLinks] = useState<RegistrationLink[]>([]);
@@ -169,6 +177,9 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
         trees.forEach((tree) => walk(tree));
         setNodes(flat);
       }
+
+      // Cargar solicitudes pendientes de autoinscripción (S2-10)
+      loadPendingVoters();
     } catch (err: any) {
       setError(err.message || 'Error al cargar los datos del padrón electoral.');
     } finally {
@@ -204,11 +215,61 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
     loadVotersList();
   }, [electionId, selectedGroupId, selectedStatus]);
 
+  const loadPendingVoters = async () => {
+    if (!electionId) return;
+    try {
+      setLoadingPending(true);
+      const data = await api.get<Voter[]>(`/elections/${electionId}/voters/pending-approval`);
+      setPendingVoters(data);
+    } catch (err: any) {
+      console.error('Error al listar solicitudes pendientes:', err);
+    } finally {
+      setLoadingPending(false);
+    }
+  };
+
+  const handleApproveVoter = async (voterId: string) => {
+    try {
+      setActionVoterId(voterId);
+      await api.post(`/voters/${voterId}/approve`);
+      await loadPendingVoters();
+      const summ = await api.get<RegistrationSummaryResponse>(`/elections/${electionId}/registration/summary`);
+      setSummary(summ);
+      loadVotersList();
+    } catch (err: any) {
+      alert(err.message || 'Error al aprobar votante.');
+    } finally {
+      setActionVoterId(null);
+    }
+  };
+
+  const handleRejectVoter = async () => {
+    if (!rejectModalVoter) return;
+    try {
+      setRejectSubmitting(true);
+      await api.post(`/voters/${rejectModalVoter.id}/reject`, {
+        reason: rejectionReason || 'Rechazado por administración electoral',
+      });
+      setRejectModalVoter(null);
+      setRejectionReason('');
+      await loadPendingVoters();
+      const summ = await api.get<RegistrationSummaryResponse>(`/elections/${electionId}/registration/summary`);
+      setSummary(summ);
+      loadVotersList();
+    } catch (err: any) {
+      alert(err.message || 'Error al rechazar solicitud.');
+    } finally {
+      setRejectSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'links') {
       loadLinks();
     } else if (activeTab === 'credentials') {
       loadCredentials();
+    } else if (activeTab === 'pending-approval') {
+      loadPendingVoters();
     }
   }, [activeTab]);
 
@@ -914,6 +975,25 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
           >
             <Key className="w-4 h-4 text-civic-navy-900" />
             <span>Credenciales Demo S1-09 ({credentials.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('pending-approval')}
+            className={`pb-3 flex items-center space-x-2 border-b-2 transition-colors ${
+              activeTab === 'pending-approval'
+                ? 'border-civic-navy-900 text-civic-navy-900'
+                : 'border-transparent text-stone-500 hover:text-stone-800'
+            }`}
+          >
+            <UserPlus className="w-4 h-4 text-seal-amber" />
+            <span>
+              Autoinscripciones S2-10
+              {pendingVoters.length > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] bg-seal-amber text-white font-bold">
+                  {pendingVoters.length}
+                </span>
+              )}
+            </span>
           </button>
         </div>
 
@@ -1652,6 +1732,114 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
           </div>
         )}
 
+        {/* PESTAÑA: SOLICITUDES DE AUTOINSCRIPCIÓN (S2-10) */}
+        {activeTab === 'pending-approval' && (
+          <div className="space-y-4">
+            <div className="bg-white border border-stone-300 rounded-xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h3 className="font-title text-base font-bold text-civic-navy-900 flex items-center space-x-2">
+                  <UserPlus className="w-5 h-5 text-seal-amber" />
+                  <span>Bandeja de Aprobación de Autoinscripciones (S2-10)</span>
+                </h3>
+                <p className="text-xs text-stone-600 mt-1 max-w-2xl">
+                  Revisa y valida las solicitudes ciudadanas registradas en la modalidad abierta con aprobación
+                  (`OPEN_WITH_APPROVAL`). Al aprobar un registro, pasa a estado ACTIVO y se integrará al Árbol de Merkle
+                  del padrón.
+                </p>
+              </div>
+
+              <button
+                onClick={loadPendingVoters}
+                disabled={loadingPending}
+                className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingPending ? 'animate-spin' : ''}`} />
+                <span>Actualizar Solicitudes</span>
+              </button>
+            </div>
+
+            <div className="bg-white border border-stone-300 rounded-xl overflow-hidden shadow-sm">
+              <div className="p-3 bg-stone-50 border-b border-stone-200 text-xs font-bold text-stone-700 flex justify-between items-center">
+                <span>Solicitudes Pendientes de Revisión ({pendingVoters.length})</span>
+                <span className="text-[11px] font-mono text-stone-500">Modo: {election?.registration_mode}</span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-stone-100 text-stone-600 font-mono text-[11px] border-b border-stone-200">
+                      <th className="py-2.5 px-3">Documento (CI)</th>
+                      <th className="py-2.5 px-3">Nombre Completo</th>
+                      <th className="py-2.5 px-3">Contacto</th>
+                      <th className="py-2.5 px-3">Grupo / Nodo</th>
+                      <th className="py-2.5 px-3">Fecha Solicitud</th>
+                      <th className="py-2.5 px-3 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-200">
+                    {pendingVoters.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-xs text-stone-500 font-mono">
+                          No hay solicitudes de autoinscripción pendientes de aprobación.
+                        </td>
+                      </tr>
+                    ) : (
+                      pendingVoters.map((v) => {
+                        const grp = groups.find((g) => g.id === v.group_id);
+                        const nde = nodes.find((n) => n.id === v.node_id);
+                        const isActing = actionVoterId === v.id;
+
+                        return (
+                          <tr key={v.id} className="hover:bg-stone-50">
+                            <td className="py-2.5 px-3 font-mono font-bold text-civic-navy-900">
+                              {v.document_id}
+                            </td>
+                            <td className="py-2.5 px-3 font-semibold text-stone-800">
+                              {v.full_name}
+                            </td>
+                            <td className="py-2.5 px-3 text-stone-600 font-mono text-[11px]">
+                              <div>{v.email || 'Sin correo'}</div>
+                              {v.phone && <div className="text-stone-400">{v.phone}</div>}
+                            </td>
+                            <td className="py-2.5 px-3 text-stone-700">
+                              <span className="font-semibold block">{grp?.name || v.group_id}</span>
+                              <span className="text-[10px] text-stone-500 font-mono">
+                                {nde?.name || v.node_id} ({nde?.path || ''})
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-stone-500 font-mono text-[11px]">
+                              {new Date(v.created_at).toLocaleString()}
+                            </td>
+                            <td className="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
+                              <button
+                                onClick={() => handleApproveVoter(v.id)}
+                                disabled={isActing}
+                                className="px-2.5 py-1 bg-seal-emerald hover:bg-seal-emerald/90 text-white rounded text-xs font-bold transition-colors disabled:opacity-50"
+                              >
+                                {isActing ? 'Procesando...' : 'Aprobar'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setRejectModalVoter(v);
+                                  setRejectionReason('No cumple con los requisitos institucionales del padrón.');
+                                }}
+                                disabled={isActing}
+                                className="px-2.5 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded text-xs font-bold transition-colors disabled:opacity-50"
+                              >
+                                Rechazar
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* MODAL: EMPADRONAR VOTANTE INDIVIDUAL */}
         {showCreateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-civic-navy-950/70 backdrop-blur-xs p-4 overflow-y-auto">
@@ -2069,6 +2257,62 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: RECHAZO DE AUTOINSCRIPCIÓN (S2-10) */}
+        {rejectModalVoter && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-civic-navy-950/70 backdrop-blur-xs p-4">
+            <div className="bg-white rounded-2xl border border-stone-300 shadow-2xl max-w-md w-full p-6 space-y-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <h3 className="font-title text-base font-bold text-civic-navy-900 flex items-center space-x-2">
+                  <Ban className="w-5 h-5 text-seal-crimson" />
+                  <span>Rechazar Solicitud de Autoinscripción</span>
+                </h3>
+                <button
+                  onClick={() => setRejectModalVoter(null)}
+                  className="text-stone-400 hover:text-stone-600 font-bold text-xl"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <p className="text-xs text-stone-600">
+                Está a punto de rechazar la solicitud de <strong>{rejectModalVoter.full_name}</strong> (CI: {rejectModalVoter.document_id}).
+                Indique el motivo formal del rechazo para registro en la bitácora de auditoría.
+              </p>
+
+              <div>
+                <label className="block text-[11px] font-bold text-stone-700 uppercase font-mono mb-1">
+                  Motivo de Rechazo *
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-stone-300 rounded-lg text-xs focus:outline-hidden focus:ring-2 focus:ring-seal-crimson"
+                  placeholder="Detalle la causal reglamentaria..."
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRejectModalVoter(null)}
+                  className="px-3 py-1.5 border border-stone-300 rounded-lg text-xs font-semibold text-stone-700 hover:bg-stone-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRejectVoter}
+                  disabled={rejectSubmitting || !rejectionReason.trim()}
+                  className="px-4 py-1.5 bg-seal-crimson hover:bg-seal-crimson/90 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                >
+                  {rejectSubmitting ? 'Rechazando...' : 'Confirmar Rechazo'}
+                </button>
+              </div>
             </div>
           </div>
         )}

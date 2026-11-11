@@ -44,6 +44,7 @@ class VoterResponse(BaseModel):
     attributes: dict[str, Any]
     status: VoterStatus
     blocked_reason: str | None
+    rejection_reason: str | None = None
     invited_at: datetime | None
     activated_at: datetime | None
     created_at: datetime

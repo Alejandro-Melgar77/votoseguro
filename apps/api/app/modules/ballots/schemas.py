@@ -93,13 +93,23 @@ class CastBallotReceiptResponse(BaseModel):
     status: str = "RECORDED_IN_BALLOT_BOX"
 
 
+class ReceiptChainProofItem(BaseModel):
+    chain_index: int
+    vote_hash: str
+    prev_hash: str
+
+
 class ReceiptVerificationResponse(BaseModel):
     found: bool
     receipt_hash: str
     election_id: uuid.UUID | None = None
+    election_name: str | None = None
+    organization_name: str | None = None
     cast_at_minute: datetime | None = None
     contests_recorded: int = 0
     status: str
+    chain_proof: list[ReceiptChainProofItem] = []
+    chain_intact: bool = True
 
 
 class CredentialDispatchItem(BaseModel):

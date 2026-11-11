@@ -16,9 +16,11 @@ from app.core.exceptions import (
 )
 from app.core.time import TimeProvider, ensure_utc
 from app.crypto.hashing import canonical_json, sha256_hex
+from app.crypto.merkle import MerkleTree, compute_voter_leaf_hash
 from app.db.models.election import Election, ElectionStatus
 from app.db.models.organization import Organization
 from app.db.models.structure import UnitNode, VoterGroup
+from app.db.models.user import User
 from app.db.models.voter import LinkStatus, RegistrationLink, Voter, VoterStatus
 from app.modules.audit.service import AuditService
 from app.modules.registration.schemas import (
@@ -28,6 +30,11 @@ from app.modules.registration.schemas import (
     RegistrationLinkCreate,
     RegistrationLinkResponse,
     RollHashFreezeResponse,
+    SelfRegistrationGroupDTO,
+    SelfRegistrationInfoResponse,
+    SelfRegistrationNodeDTO,
+    SelfRegistrationRequest,
+    SelfRegistrationResponse,
     SendInvitationsRequest,
     SendInvitationsResponse,
 )
@@ -126,6 +133,15 @@ class RegistrationService:
             },
         )
         await db.commit()
+
+        # S2-04: Transmitir actualización de padrón por WebSockets
+        try:
+            import asyncio
+            from app.db.session import async_session_factory
+            from app.modules.realtime.manager import ws_manager
+            asyncio.create_task(ws_manager.broadcast_election(election.id, async_session_factory, time_provider))
+        except Exception:
+            pass
         await db.refresh(link)
 
         return RegistrationLinkResponse(
@@ -242,6 +258,15 @@ class RegistrationService:
             payload={"link_id": str(link.id)},
         )
         await db.commit()
+
+        # S2-04: Transmitir actualización de padrón por WebSockets
+        try:
+            import asyncio
+            from app.db.session import async_session_factory
+            from app.modules.realtime.manager import ws_manager
+            asyncio.create_task(ws_manager.broadcast_election(election.id, async_session_factory, time_provider))
+        except Exception:
+            pass
         return {"message": "Enlace de registro revocado correctamente."}
 
     @staticmethod
@@ -306,6 +331,15 @@ class RegistrationService:
             payload={"invited_count": invited_count, "node_id": str(payload.node_id) if payload.node_id else None},
         )
         await db.commit()
+
+        # S2-04: Transmitir actualización de padrón por WebSockets
+        try:
+            import asyncio
+            from app.db.session import async_session_factory
+            from app.modules.realtime.manager import ws_manager
+            asyncio.create_task(ws_manager.broadcast_election(election.id, async_session_factory, time_provider))
+        except Exception:
+            pass
 
         return SendInvitationsResponse(
             invited_count=invited_count,
@@ -491,6 +525,15 @@ class RegistrationService:
         )
         await db.commit()
 
+        # S2-04: Transmitir actualización de padrón por WebSockets
+        try:
+            import asyncio
+            from app.db.session import async_session_factory
+            from app.modules.realtime.manager import ws_manager
+            asyncio.create_task(ws_manager.broadcast_election(election.id, async_session_factory, time_provider))
+        except Exception:
+            pass
+
         return PublicVoterActivationResponse(
             success=True,
             message="Registro activado exitosamente. Se encuentra formalmente habilitado para sufragar.",
@@ -544,7 +587,22 @@ class RegistrationService:
 
         roll_hash = sha256_hex(canonical_json(canonical_roll_data))
 
+        # S2-07: Cálculo del Árbol de Merkle del padrón congelado
+        leaves = [
+            compute_voter_leaf_hash(
+                election_id=str(election.id),
+                document_id=v.document_id,
+                group_code=v.group.code if v.group else (v.group.name if v.group else ""),
+                node_path=v.node.path if v.node else "",
+                status="ACTIVE",
+            )
+            for v in active_voters
+        ]
+        merkle_tree = MerkleTree(leaves, str(election.id))
+        merkle_root = merkle_tree.root
+
         election.roll_hash = roll_hash
+        election.merkle_root = merkle_root
         election.registration_frozen_at = db_now
         election.status = ElectionStatus.REGISTRATION_CLOSED
         election.updated_at = db_now
@@ -573,16 +631,293 @@ class RegistrationService:
             election_id=election.id,
             payload={
                 "roll_hash": roll_hash,
+                "merkle_root": merkle_root,
                 "active_voters_count": len(active_voters),
                 "timestamp": db_now.isoformat(),
             },
         )
         await db.commit()
 
+        # S2-04: Transmitir actualización de padrón por WebSockets
+        try:
+            import asyncio
+            from app.db.session import async_session_factory
+            from app.modules.realtime.manager import ws_manager
+            asyncio.create_task(ws_manager.broadcast_election(election.id, async_session_factory, time_provider))
+        except Exception:
+            pass
+
         return RollHashFreezeResponse(
             election_id=election.id,
             roll_hash=roll_hash,
+            merkle_root=merkle_root,
             active_voters_count=len(active_voters),
             registration_frozen_at=db_now,
             status=election.status.value,
         )
+
+    # =========================================================================
+    # S2-10: Autoinscripción en Registro Abierto con Aprobación
+    # =========================================================================
+
+    @staticmethod
+    async def get_self_registration_info(
+        db: AsyncSession,
+        election_id: uuid.UUID,
+    ) -> SelfRegistrationInfoResponse:
+        """
+        Retorna la estructura de grupos y nodos válidos para el formulario público de autoinscripción.
+        """
+        election = await db.get(Election, election_id)
+        if not election:
+            raise NotFoundException(f"Elección con ID {election_id} no encontrada.")
+
+        from app.db.models.structure import Contest, UnitNode, VoterGroup, FilterDefinition
+        stmt_groups = select(VoterGroup).where(VoterGroup.election_id == election_id)
+        groups = (await db.execute(stmt_groups)).scalars().all()
+
+        group_ids = [g.id for g in groups]
+        filters = []
+        if group_ids:
+            stmt_filters = select(FilterDefinition).where(FilterDefinition.group_id.in_(group_ids))
+            filters = (await db.execute(stmt_filters)).scalars().all()
+        filter_defs = [
+            {"code": f.key, "label": f.label, "allowed_values": f.allowed_values or [], "is_required": f.is_required}
+            for f in filters
+        ]
+
+        groups_dto = []
+        for g in groups:
+            # Calcular profundidad máxima de cargos del grupo
+            stmt_contests = select(Contest).options(selectinload(Contest.scope_level)).where(Contest.group_id == g.id)
+            contests = (await db.execute(stmt_contests)).scalars().all()
+            max_depth = 1
+            for c in contests:
+                if c.scope_level and c.scope_level.depth > max_depth:
+                    max_depth = c.scope_level.depth
+
+            # Cargar nodos del grupo con depth >= max_depth
+            stmt_nodes = select(UnitNode).where(
+                UnitNode.group_id == g.id,
+                UnitNode.depth >= max_depth,
+            ).order_by(UnitNode.path.asc())
+            nodes = (await db.execute(stmt_nodes)).scalars().all()
+
+            nodes_dto = [
+                SelfRegistrationNodeDTO(
+                    id=n.id,
+                    name=n.name,
+                    code=n.code,
+                    path=n.path,
+                    depth=n.depth,
+                )
+                for n in nodes
+            ]
+            groups_dto.append(
+                SelfRegistrationGroupDTO(
+                    id=g.id,
+                    name=g.name,
+                    code=g.code,
+                    nodes=nodes_dto,
+                )
+            )
+
+        is_open = (
+            election.status == ElectionStatus.REGISTRATION_OPEN
+            and election.registration_mode == "OPEN_WITH_APPROVAL"
+        )
+
+        return SelfRegistrationInfoResponse(
+            election_id=election.id,
+            election_name=election.name,
+            registration_mode=election.registration_mode,
+            status=election.status.value,
+            is_open=is_open,
+            groups=groups_dto,
+            filter_definitions=filter_defs,
+        )
+
+    @staticmethod
+    async def self_register_voter(
+        db: AsyncSession,
+        election_id: uuid.UUID,
+        payload: SelfRegistrationRequest,
+        time_provider: TimeProvider,
+    ) -> SelfRegistrationResponse:
+        """
+        S2-10: Registra a un ciudadano en estado PENDING_APPROVAL cuando el modo es OPEN_WITH_APPROVAL.
+        """
+        election = await db.get(Election, election_id)
+        if not election:
+            raise NotFoundException(f"Elección con ID {election_id} no encontrada.")
+
+        if election.registration_mode != "OPEN_WITH_APPROVAL":
+            raise ForbiddenException(
+                "La autoinscripción pública no está habilitada para esta elección (modo restringido por enlace)."
+            )
+
+        if election.status != ElectionStatus.REGISTRATION_OPEN:
+            raise ForbiddenException(
+                f"La fase de registro no se encuentra abierta actualmente (estado: {election.status.value})."
+            )
+
+        doc_clean = payload.document_id.strip()
+        stmt_exist = select(Voter).where(
+            Voter.election_id == election_id,
+            Voter.document_id == doc_clean,
+        )
+        existing = (await db.execute(stmt_exist)).scalar_one_or_none()
+        if existing:
+            raise ConflictException(f"Ya existe una solicitud o registro con el documento '{doc_clean}'.")
+
+        from app.db.models.structure import Contest, UnitNode
+        node = await db.get(UnitNode, payload.node_id)
+        if not node or node.group_id != payload.group_id:
+            raise UnprocessableEntityException("La unidad o carrera seleccionada no pertenece al estamento indicado.")
+
+        db_now = await time_provider.now(db)
+
+        voter = Voter(
+            organization_id=election.organization_id,
+            election_id=election.id,
+            group_id=payload.group_id,
+            node_id=payload.node_id,
+            document_id=doc_clean,
+            full_name=payload.full_name.strip(),
+            email=payload.email.strip() if payload.email else None,
+            phone=payload.phone.strip() if payload.phone else None,
+            attributes=payload.attributes or {},
+            status=VoterStatus.PENDING_APPROVAL,
+            created_at=db_now,
+        )
+        db.add(voter)
+        await db.flush()
+
+        await AuditService.log_event(
+            db=db,
+            action="VOTER_SELF_REGISTERED_PENDING",
+            entity_type="voter",
+            entity_id=str(voter.id),
+            actor_role="CITIZEN",
+            organization_id=election.organization_id,
+            election_id=election.id,
+            payload={
+                "document_id": doc_clean,
+                "full_name": voter.full_name,
+                "group_id": str(payload.group_id),
+                "node_id": str(payload.node_id),
+            },
+        )
+        await db.commit()
+
+        return SelfRegistrationResponse(
+            success=True,
+            message="Solicitud de inscripción recibida exitosamente. Pendiente de verificación por la comisión electoral.",
+            voter_id=voter.id,
+            document_id=doc_clean,
+            full_name=voter.full_name,
+            status=voter.status.value,
+        )
+
+    @staticmethod
+    async def approve_voter(
+        db: AsyncSession,
+        election_id: uuid.UUID,
+        voter_id: uuid.UUID,
+        admin_user: User,
+        time_provider: TimeProvider,
+    ) -> Voter:
+        """
+        S2-10: Aprueba la autoinscripción (PENDING_APPROVAL -> ACTIVE).
+        """
+        voter = await db.get(Voter, voter_id)
+        if not voter or voter.election_id != election_id:
+            raise NotFoundException(f"Votante con ID {voter_id} no encontrado.")
+
+        status_val = voter.status.value if hasattr(voter.status, "value") else str(voter.status)
+        if status_val != "PENDING_APPROVAL":
+            raise ConflictException(f"El votante se encuentra en estado '{status_val}', no en PENDING_APPROVAL.")
+
+        db_now = await time_provider.now(db)
+        voter.status = VoterStatus.ACTIVE
+        voter.activated_at = db_now
+        voter.reviewed_by = admin_user.id
+
+        await AuditService.log_event(
+            db=db,
+            action="VOTER_SELF_REGISTRATION_APPROVED",
+            entity_type="voter",
+            entity_id=str(voter.id),
+            actor_role=admin_user.role.value,
+            actor_id=admin_user.id,
+            organization_id=voter.organization_id,
+            election_id=election_id,
+            payload={
+                "document_id": voter.document_id,
+                "full_name": voter.full_name,
+            },
+        )
+        await db.commit()
+        await db.refresh(voter)
+        return voter
+
+    @staticmethod
+    async def reject_voter(
+        db: AsyncSession,
+        election_id: uuid.UUID,
+        voter_id: uuid.UUID,
+        reason: str,
+        admin_user: User,
+        time_provider: TimeProvider,
+    ) -> Voter:
+        """
+        S2-10: Rechaza la autoinscripción (PENDING_APPROVAL -> BLOCKED con motivo).
+        """
+        voter = await db.get(Voter, voter_id)
+        if not voter or voter.election_id != election_id:
+            raise NotFoundException(f"Votante con ID {voter_id} no encontrado.")
+
+        status_val = voter.status.value if hasattr(voter.status, "value") else str(voter.status)
+        if status_val != "PENDING_APPROVAL":
+            raise ConflictException(f"El votante se encuentra en estado '{status_val}', no en PENDING_APPROVAL.")
+
+        db_now = await time_provider.now(db)
+        voter.status = VoterStatus.BLOCKED
+        voter.rejection_reason = reason.strip()
+        voter.blocked_reason = f"Rechazo de autoinscripción: {reason.strip()}"
+        voter.reviewed_by = admin_user.id
+
+        await AuditService.log_event(
+            db=db,
+            action="VOTER_SELF_REGISTRATION_REJECTED",
+            entity_type="voter",
+            entity_id=str(voter.id),
+            actor_role=admin_user.role.value,
+            actor_id=admin_user.id,
+            organization_id=voter.organization_id,
+            election_id=election_id,
+            payload={
+                "document_id": voter.document_id,
+                "full_name": voter.full_name,
+                "reason": reason.strip(),
+            },
+        )
+        await db.commit()
+        await db.refresh(voter)
+        return voter
+
+    @staticmethod
+    async def list_pending_voters(
+        db: AsyncSession,
+        election_id: uuid.UUID,
+    ) -> list[Voter]:
+        stmt = (
+            select(Voter)
+            .options(selectinload(Voter.node), selectinload(Voter.group))
+            .where(
+                Voter.election_id == election_id,
+                Voter.status == VoterStatus.PENDING_APPROVAL,
+            )
+            .order_by(Voter.created_at.asc())
+        )
+        return list((await db.execute(stmt)).scalars().all())

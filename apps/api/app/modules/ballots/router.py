@@ -3,8 +3,10 @@ Router API para Cabina de Votación, Papeleta Automática y Emisión Atómica (S
 """
 import uuid
 from typing import Annotated
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.rate_limit import limiter
 
 from app.core.dependencies import (
     TenantContext,
@@ -39,7 +41,9 @@ router = APIRouter(tags=["Cabina de Votación y Papeleta Oficial"])
     response_model=VoterLoginResponse,
     status_code=status.HTTP_200_OK,
 )
+@limiter.limit("15/minute")
 async def voter_login(
+    request: Request,
     payload: VoterLoginRequest,
     db: Annotated[AsyncSession, Depends(get_db_session)],
     time_provider: Annotated[TimeProvider, Depends(get_time_provider)],
@@ -78,7 +82,9 @@ async def get_automatic_ballot(
     response_model=CastBallotReceiptResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit("20/minute")
 async def cast_ballot_atomic(
+    request: Request,
     payload: CastBallotRequest,
     session_ctx: Annotated[VoterSessionContext, Depends(get_current_voter_session)],
     db: Annotated[AsyncSession, Depends(get_db_session)],

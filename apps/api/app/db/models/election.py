@@ -62,9 +62,14 @@ class Election(Base):
         nullable=False,
         default=ElectionStatus.DRAFT,
     )
+    registration_mode: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="LINK_ONLY"
+    )
     k_anonymity: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     config_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     roll_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    merkle_root: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    votes_chain_head: Mapped[str | None] = mapped_column(String(64), nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     registration_frozen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     voting_closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -18,7 +18,7 @@ from app.core.exceptions import (
 )
 from app.core.security import create_voter_token
 from app.core.time import TimeProvider, ensure_utc
-from app.crypto.hashing import compute_receipt_hash, sha256_hex
+from app.crypto.hashing import canonical_json, compute_receipt_hash, sha256_hex
 from app.crypto.nullifier import compute_nullifier
 from app.crypto.vote_codec import default_vote_codec
 from app.db.models.election import Election, ElectionStatus
@@ -132,6 +132,15 @@ class BallotService:
             payload={"credentials_issued": issued_count, "timestamp": db_now.isoformat()},
         )
         await db.commit()
+
+        # S2-04: Transmitir actualización en tiempo real por WebSockets
+        try:
+            import asyncio
+            from app.db.session import async_session_factory
+            from app.modules.realtime.manager import ws_manager
+            asyncio.create_task(ws_manager.broadcast_election(election.id, async_session_factory, time_provider))
+        except Exception:
+            pass
 
         return {
             "message": "Votación abierta formalmente. Credenciales emitidas con éxito.",
@@ -537,9 +546,53 @@ class BallotService:
         nonce = secrets.token_hex(16)
         receipt_hash = compute_receipt_hash(nullifiers, str(election.id), nonce)
 
+        # S2-02: Encadenamiento criptográfico secuencial de votos
+        # Bloque Génesis: SHA-256("VOTOSEGURO:VOTE_GENESIS:" + str(election.id) + ":" + (config_hash or "DRAFT"))
+        genesis_vote_hash = sha256_hex(f"VOTOSEGURO:VOTE_GENESIS:{election.id}:{election.config_hash or 'DRAFT'}")
+
+        # Bloqueo sobre la elección si el motor lo soporta
+        if db.bind and db.bind.dialect.name == "postgresql":
+            await db.execute(select(Election).where(Election.id == election.id).with_for_update())
+
+        stmt_last_vote = (
+            select(Vote)
+            .where(Vote.election_id == election.id)
+            .order_by(Vote.chain_index.desc())
+            .limit(1)
+        )
+        last_vote = (await db.execute(stmt_last_vote)).scalar_one_or_none()
+
+        if last_vote and last_vote.vote_hash:
+            current_prev_hash = last_vote.vote_hash
+            next_index = last_vote.chain_index + 1
+        else:
+            current_prev_hash = genesis_vote_hash
+            next_index = 1
+
         for v in votes_to_insert:
             v.receipt_hash = receipt_hash
+            v.chain_index = next_index
+            v.prev_hash = current_prev_hash
+
+            vote_block_payload = {
+                "chain_index": next_index,
+                "prev_hash": current_prev_hash,
+                "election_id": str(election.id),
+                "constituency_id": str(v.constituency_id),
+                "choice_type": v.choice_type.value if hasattr(v.choice_type, "value") else str(v.choice_type),
+                "candidate_id": str(v.candidate_id) if v.candidate_id else None,
+                "encoded_payload": v.encoded_payload,
+                "segment_path": v.segment_path,
+                "nullifier": v.nullifier,
+                "receipt_hash": receipt_hash,
+                "created_at_iso": ensure_utc(truncated_time).isoformat(),
+            }
+            v.vote_hash = sha256_hex(canonical_json(vote_block_payload))
+            current_prev_hash = v.vote_hash
+            next_index += 1
             db.add(v)
+
+        election.votes_chain_head = current_prev_hash
 
         # 6. Marcar credencial como consumida
         cred.used_at = db_now
@@ -571,6 +624,15 @@ class BallotService:
 
         await db.commit()
 
+        # S2-04: Transmitir actualización en tiempo real por WebSockets
+        try:
+            import asyncio
+            from app.db.session import async_session_factory
+            from app.modules.realtime.manager import ws_manager
+            asyncio.create_task(ws_manager.broadcast_election(election.id, async_session_factory, time_provider))
+        except Exception:
+            pass
+
         return CastBallotReceiptResponse(
             receipt_hash=receipt_hash,
             election_id=election.id,
@@ -589,8 +651,13 @@ class BallotService:
         """
         Verifica públicamente si un comprobante de sufragio existe en la urna digital
         SIN REVELAR JAMÁS la elección o los candidatos votados (Invariante #9).
+        S2-03: Incluye chain_proof (eslabones chain_index, vote_hash, prev_hash) y estado de integridad.
         """
-        stmt = select(Vote).where(Vote.receipt_hash == receipt_hash.strip())
+        stmt = (
+            select(Vote)
+            .where(Vote.receipt_hash == receipt_hash.strip())
+            .order_by(Vote.chain_index.asc())
+        )
         votes = (await db.execute(stmt)).scalars().all()
 
         if not votes:
@@ -598,17 +665,62 @@ class BallotService:
                 found=False,
                 receipt_hash=receipt_hash,
                 election_id=None,
+                election_name=None,
+                organization_name=None,
                 cast_at_minute=None,
                 contests_recorded=0,
                 status="NOT_FOUND",
+                chain_proof=[],
+                chain_intact=False,
             )
 
         first_vote = votes[0]
+        election = await db.get(Election, first_vote.election_id)
+        org_name = None
+        if election:
+            from app.db.models.organization import Organization
+            org = await db.get(Organization, election.organization_id)
+            org_name = org.name if org else None
+
+        from app.modules.ballots.schemas import ReceiptChainProofItem
+        chain_proof = [
+            ReceiptChainProofItem(
+                chain_index=v.chain_index,
+                vote_hash=v.vote_hash or "",
+                prev_hash=v.prev_hash or "",
+            )
+            for v in votes
+        ]
+
+        # Verificar integridad local de los eslabones del comprobante
+        chain_intact = True
+        for v in votes:
+            expected_payload = {
+                "chain_index": v.chain_index,
+                "prev_hash": v.prev_hash,
+                "election_id": str(v.election_id),
+                "constituency_id": str(v.constituency_id),
+                "choice_type": v.choice_type.value if hasattr(v.choice_type, "value") else str(v.choice_type),
+                "candidate_id": str(v.candidate_id) if v.candidate_id else None,
+                "encoded_payload": v.encoded_payload,
+                "segment_path": v.segment_path,
+                "nullifier": v.nullifier,
+                "receipt_hash": v.receipt_hash,
+                "created_at_iso": ensure_utc(v.created_at).isoformat(),
+            }
+            if v.vote_hash != sha256_hex(canonical_json(expected_payload)):
+                chain_intact = False
+                break
+
         return ReceiptVerificationResponse(
             found=True,
             receipt_hash=receipt_hash,
             election_id=first_vote.election_id,
+            election_name=election.name if election else None,
+            organization_name=org_name,
             cast_at_minute=first_vote.created_at,
             contests_recorded=len(votes),
             status="RECORDED_IN_BALLOT_BOX",
+            chain_proof=chain_proof,
+            chain_intact=chain_intact,
         )

@@ -52,6 +52,7 @@ class ElectionService:
             voting_opens_at=vote_open,
             voting_closes_at=vote_close,
             status=ElectionStatus.DRAFT,
+            registration_mode=payload.registration_mode or "LINK_ONLY",
             k_anonymity=payload.k_anonymity,
             created_by=creator.id,
             created_at=db_now,
@@ -122,6 +123,8 @@ class ElectionService:
             election.timezone = payload.timezone.strip()
         if payload.k_anonymity is not None:
             election.k_anonymity = payload.k_anonymity
+        if payload.registration_mode is not None:
+            election.registration_mode = payload.registration_mode
 
         election.updated_at = db_now
         await AuditService.log_event(
@@ -160,6 +163,7 @@ class ElectionService:
             return election
 
         reason_text = payload.reason.strip() if payload.reason else "Ajuste de cronograma en borrador"
+        applied_changes = []
 
         # Aplicar cambios y registrar en schedule_change
         for diff in diffs:
@@ -177,8 +181,22 @@ class ElectionService:
                 changed_at=db_now,
             )
             db.add(change_record)
+            applied_changes.append(change_record)
 
         election.updated_at = db_now
+
+        # S2-09: Notificar a votantes registrados (ACTIVE o INVITED)
+        try:
+            from app.modules.notifications.service import NotificationService
+            await NotificationService.dispatch_schedule_notifications(
+                db=db,
+                election=election,
+                schedule_changes=applied_changes,
+                reason_text=reason_text,
+                db_now=db_now,
+            )
+        except Exception as exc:
+            pass
 
         await AuditService.log_event(
             db=db,

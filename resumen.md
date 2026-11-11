@@ -1,9 +1,22 @@
-# VotoSeguro v2 — Resumen Ejecutivo de Implementación (Sprint 1 Completo — Final Release v1.0)
+# VotoSeguro v2 — Resumen Ejecutivo de Implementación (Sprint 1 Completo & Sprint 2 Fase 1 Completa)
 
 **Plataforma SaaS Multi-Institución de Votación Electrónica Auditada**  
 **Asignatura:** Ingeniería de Software I (INF 422 SB) — UAGRM  
 **Fecha de corte:** 11 de Noviembre de 2026  
-**Estado:** **100% de Historias de Usuario del Sprint 1 (14/14 historias)** desarrolladas, verificadas con suite de 15 pruebas automatizadas en `pytest` (100% de éxito), frontend compilado en producción (Vite + TypeScript con 0 errores), base de datos Supabase migrada a la última versión (`0003_iter3_voting`), dataset institucional sembrado (`seed:demo`), e infraestructura cloud activa (Supabase + Render + Cloudflare Pages).
+**Estado:**
+- **Sprint 1 (100% Completo — 14/14 historias de usuario):** Infraestructura, Tenancy, Jerarquías Dinámicas, Papeleta, Voto Ciego Atómico, Nullifiers Ciegos, Escrutinio con $k$-Anonimato y Sembrador Demo.
+- **Sprint 2 — Fase 1 de 2 (100% Completo — 10/10 requisitos y Spike Criptográfico):**
+  - **S2-02 (Must — 5 pts):** Cadena de Hashes en Votos (`prev_hash`, `vote_hash`, bloque génesis por elección y verificación integral de urna).
+  - **S2-03 (Must — 3 pts):** Verificación Pública de Comprobante de Voto con prueba de posición en cadena y secreto absoluto.
+  - **S2-05 (Must — 3 pts):** Cadena de Hashes en Bitácora de Auditoría y registro unificado de eventos de IA (`log_ai_call`).
+  - **S2-07 (Should — 5 pts):** Árbol de Merkle del Padrón Electoral (`merkle_root`), generación de pruebas logarítmicas de inclusión y verificador criptográfico sin exponer el censo.
+  - **S2-04 (Must — 5 pts):** Dashboard de Monitoreo en Tiempo Real con WebSockets (`/live`), métricas por hora, participación segmentada y respeto estricto de la Invariante #11.
+  - **S2-06 (Must — 3 pts):** Rate Limiting por IP y ruta crítica contra fuerza bruta y DoS con `slowapi` (HTTP 429).
+  - **S2-08 (Should — 3 pts):** Motor Oficial de Exportación a PDF (`reportlab`) y Excel (`openpyxl`) para Resultados ($k$-anonimato), Participación y Auditoría.
+  - **S2-09 (Should — 2 pts):** Notificación por Correo de Reprogramaciones de Cronograma con bandeja de salida `notification_outbox` y fallback `aiosmtplib`.
+  - **S2-10 (Could — 3 pts):** Portal Público de Autoinscripción (`OPEN_WITH_APPROVAL`) con bandeja de aprobación/rechazo para el Administrador General.
+  - **Spike Paillier (Obligatorio Sprint 2):** Motor funcional de Cifrado Homomórfico Aditivo (`phe`) con adición homomórfica en urna agrupada por circunscripción/segmento y benchmark de rendimiento.
+- **Calidad y Verificación:** **21 de 21 pruebas automatizadas pasando en `pytest` (100% de éxito)** y compilación de producción en Vite + TypeScript con **0 errores**.
 
 ---
 
@@ -11,50 +24,55 @@
 
 **VotoSeguro v2** es una plataforma integral de voto electrónico verificable, transparente y auditada, diseñada para instituciones de educación superior, colegios de profesionales, cooperativas y asociaciones civiles de Bolivia y Latinoamérica.
 
-Su diseño arquitectónico garantiza la integridad soberana del proceso electoral mediante **17 Invariantes Electorales Criptográficas y de Dominio**:
+Su diseño arquitectónico garantiza la integridad soberana del proceso electoral mediante **Invariantes Electorales Criptográficas y de Dominio**:
 - **Aislamiento Multi-Tenancy estricto** por organización (`organization_id`).
 - **Anonimato absoluto del votante (Invariante #9):** Desvinculación criptográfica total entre la identidad del sufragante y la papeleta depositada (`vote` nunca almacena `voter_id`).
 - **Nullifier Ciego por Circunscripción (Invariante #8):** Cálculo de $\text{HMAC-SHA256}(\text{secret}, \text{voter\_id} \mathbin{\Vert} \text{":"} \mathbin{\Vert} \text{constituency\_id})$ para garantizar un solo voto por cargo sin revelar identidad.
-- **Congelamiento Estructural Post-Publicación (Invariante #3):** Una vez publicada solemnemente la elección (`DRAFT -> SCHEDULED`) y emitido el `config_hash` determinista (RFC 8785), cualquier mutación sobre grupos, niveles, nodos, filtros, cargos o candidatos es bloqueada con `HTTP 409 Conflict`.
+- **Congelamiento Estructural Post-Publicación (Invariante #3):** Una vez publicada solemnemente la elección (`DRAFT -> SCHEDULED`) y emitido el `config_hash` determinista (RFC 8785), cualquier mutación estructural es bloqueada con `HTTP 409 Conflict`.
 - **Inmutabilidad Temporal del Padrón y Sellado Canónico (Invariante #5):** El padrón electoral únicamente admite modificaciones durante `REGISTRATION_OPEN`. Al cerrarse la fase, se calcula el `roll_hash` determinista (SHA-256) congelando el censo de votantes.
-- **Credenciales Exclusivas para Votantes Activos (Invariante #7):** Solo los votantes en estado `ACTIVE` reciben credenciales personales de un solo uso (`VS-XXXX-XXXX-XXXX`).
-- **Resultados Sellados hasta el Cierre (Invariante #11):** Cualquier consulta a resultados o cómputo antes de `VOTING_CLOSED` es bloqueada con `HTTP 403 Forbidden`.
-- **Privacidad y $k$-Anonimato en Desgloses (Invariante #12):** En desgloses por nivel territorial o filtros, las celdas con recuentos menores al umbral $k$ (`k_anonymity=5`) se ocultan o redactan (`< k` votos) para impedir la reidentificación del votante.
+- **Árbol de Merkle de Inclusión Criptográfica (Invariante #18):** Al congelar el padrón, se calcula la raíz `merkle_root` sobre las hojas SHA-256 de los votantes habilitados. Cualquier ciudadano puede comprobar su inclusión mediante una prueba matemática $O(\log_2 N)$ sin exponer datos de otros electores.
+- **Cadena de Hashes en Urna y Ledger de Votos (Invariante #19):** Cada voto emitido contiene `chain_index`, `prev_hash` y `vote_hash` canónico iniciado en un bloque génesis único por elección. Una alteración manual en BD rompe la cadena inmediatamente.
+- **Cadena de Hashes en Bitácora de Auditoría (Invariante #20):** La bitácora transaccional es append-only mediante trigger de PostgreSQL (`trg_audit_log_immutable`) y encadena cada evento con SHA-256 (`entry_hash`).
+- **Resultados Sellados hasta el Cierre (Invariante #11):** Cualquier consulta a resultados o cómputo antes de `VOTING_CLOSED` es bloqueada con `HTTP 403 Forbidden`. En WebSockets y dashboards en vivo, se transmiten métricas de participación pero cero conteos por candidato.
+- **Privacidad y $k$-Anonimato en Desgloses (Invariante #12):** En desgloses por nivel territorial o filtros, las celdas con recuentos menores al umbral $k$ (`k_anonymity=5`) se ocultan o redactan (`< k` votos) tanto en pantalla como en reportes PDF/Excel.
 - **Serialización Canónica del Voto (Invariante #13):** Uso de `VoteCodec` determinista tanto en voto plano como en homomórfico.
 - **Truncamiento de Marcas Temporales (Invariante #17):** Los votos se estampan con marcas de tiempo truncadas al minuto para evitar ataques de correlación temporal con los registros de red.
 - **Autoridad temporal canónica (Invariante #6):** Todas las decisiones y transiciones de estado dependen exclusivamente del reloj de base de datos (`SELECT now() AT TIME ZONE 'UTC'`).
-- **Auditoría inmutable (Append-Only):** Bitácora transaccional blindada a nivel de PostgreSQL contra cualquier intento de modificación o eliminación (`prevent_audit_log_mutation()`).
 
 ---
 
-## 2. Historias de Usuario Implementadas (14 de 14 — 100% Sprint 1)
+## 2. Historias de Usuario Implementadas
 
-### Fase 1: Infraestructura, Tenancy, Cronograma y Scheduler
+### Sprint 1: Infraestructura, Estructura, Padrón, Voto Ciego y Escrutinio (14/14 — 100%)
+- **S1-00 (Must — 5 pts):** Configuración de Monorepo, Docker, DB y CI.
+- **S1-01 (Must — 8 pts):** Autenticación JWT, Multi-Tenancy y Organizaciones.
+- **S1-02 (Must — 8 pts):** Elección, Cronograma Editable y Scheduler Autónomo.
+- **S1-11 (Should — 3 pts):** Delegación de Administradores de Segmento (`ADMIN_SEGMENT`).
+- **S1-12 (Should — 3 pts):** Solicitud Pública de Elección por Instituciones.
+- **S1-03 (Must — 8 pts):** Grupos, Jerarquías Dinámicas y Árbol de Nodos.
+- **S1-04 (Must — 5 pts):** Filtros Extra, Cargos y Circunscripciones.
+- **S1-05 (Must — 5 pts):** Candidatos por Circunscripción y Estudio de Papeleta.
+- **S1-06 (Must — 5 pts):** Ceremonia de Publicación y `config_hash` SHA-256 (RFC 8785).
+- **S1-07 (Must — 8 pts):** Panel de Registro y Carga de Padrón Electoral.
+- **IA-L2a (Should — 5 pts):** Detección de Duplicados y Arbitraje Humano.
+- **S1-08 (Must — 6 pts):** Enlaces de Registro, Activación y `roll_hash`.
+- **S1-09 (Must — 8 pts):** Credenciales, Papeleta Automática y Voto Ciego Atómico.
+- **S1-10 (Must — 5 pts):** Escrutinio Oficial, Desgloses y $k$-Anonimato.
+- **`seed:demo` (Must):** Sembrador autónomo de Universidad EL GRAN ESTUDIO y Elecciones Ecuador.
+
+### Sprint 2 (Fase 1 de 2): Integridad Criptográfica, Merkle, WebSockets, Exportaciones & Spike Paillier (10/10 — 100%)
 | Historia | Prioridad | Denominación | Puntos | Estado | Descripción Funcional y Técnica |
 | :--- | :---: | :--- | :---: | :---: | :--- |
-| **S1-00** | **Must** | Configuración de Monorepo, Docker, DB y CI | 5 pts | **100%** | Monorepo con `pnpm` workspaces y Python venv/uv. Contenedores con `docker-compose.yml`, configuración IaC para Render (`render.yaml`), soporte SPA para Cloudflare Pages (`public/_redirects`), primitivas criptográficas (`VoteCodec`, `Nullifier`) y modelos ORM de las 20 tablas con su migración inicial Alembic (`0001_initial_sprint1_schema.py`). |
-| **S1-01** | **Must** | Autenticación JWT, Multi-Tenancy y Organizaciones | 8 pts | **100%** | Creación y administración de instituciones (tenants) por `PLATFORM_ADMIN`. Autenticación con JWT (HMAC-SHA256) y hash de contraseñas con Argon2 (con fallback automático a bcrypt). Bloqueo de seguridad por fuerza bruta tras 5 intentos fallidos durante 15 minutos (`Retry-After: 900`). Bitácora inmutable de auditoría (`audit_log`) con trigger PostgreSQL. |
-| **S1-02** | **Must** | Elección, Cronograma Editable y Scheduler Autónomo | 8 pts | **100%** | CRUD integral de Elecciones y motor de cronograma con soporte de zonas horarias IANA (`America/La_Paz`). Matriz de reglas de edición estricta con registro de motivo obligatorio (`schedule_change`). Acción de override *"Abrir registro ahora"*. Scheduler autónomo idempotente (`APScheduler` cada 10s) con lock distribuido transaccional (`pg_try_advisory_xact_lock(849201)`) y reloj de BD. |
-| **S1-11** | **Should** | Delegación de Administradores de Solo Lectura (`ADMIN_SEGMENT`) | 3 pts | **100%** | Creación y gestión de administradores con alcance territorial o de estamento restringido a un grupo institucional (`group_id`) o a un nodo del árbol jerárquico (`node_id`). |
-| **S1-12** | **Should** | Solicitud Pública de Elección por Instituciones | 3 pts | **100%** | Formulario público institucional en Landing Page para solicitar la provisión de una elección. Flujo de radicación y consola de revisión, aprobación y rechazo exclusivo para el `PLATFORM_ADMIN`. |
-
-### Fase 2: Estructura Jerárquica, Candidatos, Publicación y Padrón con IA
-| Historia | Prioridad | Denominación | Puntos | Estado | Descripción Funcional y Técnica |
-| :--- | :---: | :--- | :---: | :---: | :--- |
-| **S1-03** | **Must** | Grupos, Jerarquías Dinámicas y Árbol de Nodos | 8 pts | **100%** | Gestión de `VoterGroup`, escalera de niveles `HierarchyLevel` ordenados por `depth >= 1` y árbol organizacional `UnitNode` con ruta materializada (`path` indexada, ej. `/UAGRM/FICCT/INF/`). Importador masivo CSV de nodos con ordenamiento topológico padre-hijo y cálculo de paths. |
-| **S1-04** | **Must** | Filtros Extra, Cargos y Circunscripciones | 5 pts | **100%** | Filtros dinámicos JSONB (`FilterDefinition`), definición de cargos (`Contest`) con nivel de alcance (`scope_level_id`), desgloses (`ContestBreakdown` por `LEVEL` o `FILTER`) y sincronización/autogeneración automática de circunscripciones (`Constituency`) para cada nodo del nivel respectivo. |
-| **S1-05** | **Must** | Candidatos por Circunscripción y Estudio de Papeleta | 5 pts | **100%** | CRUD completo de candidatos (`Candidate`) por circunscripción, reordenamiento atómico de papeleta (`ballot_order`), validación de fotografías binarias mediante Magic Bytes (JPEG/PNG) y previsualización en vivo de papeleta oficial en papel marfil con opciones solemnes de Blanco y Nulo. |
-| **S1-06** | **Must** | Ceremonia de Publicación y `config_hash` SHA-256 | 5 pts | **100%** | Transición solemne `DRAFT -> SCHEDULED` mediante `POST /elections/{id}/publish`, validador de integridad de 6 reglas obligatorias, serialización canónica determinista **RFC 8785**, emisión de `config_hash` SHA-256 y congelamiento estructural irreversible con `HTTP 409 Conflict`. |
-| **S1-07** | **Must** | Panel de Registro y Carga de Padrón Electoral | 8 pts | **100%** | Gestión de votantes restringida estrictamente a `REGISTRATION_OPEN`. Alta individual e importador masivo CSV resiliente fila por fila (`ImportBatch` / `ImportIssue`) con validación de profundidad de nodo y unicidad de CI. Bloqueo/desbloqueo/retiro de votantes y resumen estadístico respetando el alcance de `ADMIN_SEGMENT`. |
-| **IA-L2a** | **Should** | Detección de Duplicados y Arbitraje Humano | 5 pts | **100%** | Detección automática de posibles duplicados y homonimias usando `pg_trgm` (`similarity >= 0.40`) y `fuzzystrmatch` (`levenshtein <= 3`), con fallback en memoria para SQLite. Bandeja de arbitraje humano con comparativa lado a lado (`CONFIRM_DISTINCT`, `BLOCK_NEW`, `REMOVE_NEW`). |
-
-### Fase 3: Activación, Papeleta Automática, Voto Ciego Atómico, Escrutinio y Demo
-| Historia | Prioridad | Denominación | Puntos | Estado | Descripción Funcional y Técnica |
-| :--- | :---: | :--- | :---: | :---: | :--- |
-| **S1-08** | **Must** | Enlaces de Registro, Activación y `roll_hash` | 6 pts | **100%** | Generación de enlaces de activación por grupo o nodo (`registration_link`), portal público de activación (`/register/:token`) validando CI del votante dentro de `REGISTRATION_OPEN`. Despacho de invitaciones y sellado automático/administrativo del padrón al cierre con cálculo determinista de `roll_hash` SHA-256 (RFC 8785). |
-| **S1-09** | **Must** | Credenciales, Papeleta Automática y Voto Ciego | 8 pts | **100%** | Emisión de credenciales personales de un solo uso (`VS-XXXX-XXXX-XXXX`) para votantes `ACTIVE`. Login de votante (`/voter/login`), resolución dinámica de papeleta automática según `group_id` y `node.path` (`GET /api/v1/ballot`), depósito atómico transaccional de votos (`POST /api/v1/ballot/cast`) con nullifiers HMAC-SHA256 por circunscripción, tabla `vote` sin `voter_id` (Invariante #9), timestamp truncado al minuto (Invariante #17), `VoteCodec` (Invariante #13), emisión de recibo criptográfico (`receipt_hash`) descargable y verificación pública de recibo. |
-| **S1-10** | **Must** | Escrutinio Oficial, Desgloses y $k$-Anonimato | 5 pts | **100%** | Cómputo de resultados tras el cierre (`VOTING_CLOSED`), sellado con `HTTP 403 Forbidden` durante la votación (Invariante #11). Conteos totales exactos por candidato, blanco y nulo, desgloses configurados (`ContestBreakdown` por jerarquía `segment_path` y filtros `filters_snapshot`), y aplicación estricta de **$k$-anonimato (Invariante #12)** ocultando o redactando celdas con $< k$ votos ($k=5$). |
-| **`seed:demo`** | **Must** | Sembrado de Datos Demo Idempotente | — | **100%** | Sembrador autónomo de dos elecciones completas: **Universidad EL GRAN ESTUDIO** (Estudiantes y Docentes, 3 facultades, 4 carreras, cargos de Rector, Decano, Director, candidatos y 36+ votantes con casos de homonimia) y **Elecciones Nacionales Ecuador** (4 niveles territoriales: País, Provincias, Cantones, Parroquias con Presidente y Gobernadores). Ejecutable vía CLI (`python -m app.db.seed_demo`) y por endpoint administrativo (`POST /api/v1/platform/seed-demo`). |
+| **S2-02** | **Must** | Cadena de Hashes en Votos y Verificación Integral de Urna | 5 pts | **100%** | Cada voto en `vote` incorpora `chain_index`, `prev_hash` y `vote_hash` canónico. Bloque génesis calculado con SHA-256 ligado al `config_hash` de la elección. Bloqueo atómico `FOR UPDATE` sobre `election` durante la emisión. Endpoint `GET /api/v1/elections/{id}/integrity/votes` que audita bloque por bloque y detecta cualquier alteración en base de datos. |
+| **S2-03** | **Must** | Verificación Pública Mejorada de Comprobante | 3 pts | **100%** | Endpoint público `GET /api/v1/receipts/{receipt_hash}` y página web `/verify-receipt` que certifica la incorporación del voto en la urna, su posición `chain_index`, `prev_hash` y `vote_hash` en la cadena, garantizando el secreto del sufragio sin revelar jamás la opción o candidato votado. |
+| **S2-05** | **Must** | Cadena de Hashes en Bitácora y Registro Unificado de IA | 3 pts | **100%** | Encadenamiento SHA-256 en `audit_log` (`chain_index`, `prev_hash`, `entry_hash`) protegido por trigger PostgreSQL. Método `log_ai_call()` para registrar inferencias de IA en la tabla `ai_call_log` y en la bitácora inmutable. Endpoint de verificación `GET /api/v1/elections/{id}/integrity/audit`. |
+| **S2-07** | **Should** | Árbol de Merkle del Padrón y Pruebas de Inclusión | 5 pts | **100%** | Módulo criptográfico `app/crypto/merkle.py`. Al pasar a `REGISTRATION_CLOSED`, se calcula `merkle_root` sobre las hojas canónicas de votantes activos. Endpoint `GET /api/v1/elections/{id}/merkle/proof/{document_id}` genera el camino de hermanos $O(\log_2 N)$. Endpoint `POST /api/v1/elections/{id}/merkle/verify` valida matemáticamente la inclusión del elector sin exponer el padrón. |
+| **S2-04** | **Must** | Dashboard en Vivo con WebSockets y Métricas por Hora | 5 pts | **100%** | Conexión WebSocket `WS /api/v1/elections/{id}/live` con fallback a `GET /live-metrics`. Monitoreo en tiempo real de avance del registro, participación por estamento/segmento jerárquico y curva de votos por hora (`hourly_votes_series`). Respeta estrictamente el alcance de `ADMIN_SEGMENT` y la **Invariante #11** (cero conteos parciales por opción). |
+| **S2-06** | **Must** | Rate Limiting contra Fuerza Bruta y DoS | 3 pts | **100%** | Integración de `slowapi` con límites estrictos por IP en rutas críticas (login: 5/min, emisión de voto: 30/min, generación de pruebas Merkle: 60/min). Retorna HTTP 429 con cabecera `Retry-After` y registra excesos en la bitácora de auditoría. |
+| **S2-08** | **Should** | Motor Oficial de Exportación a PDF y Excel | 3 pts | **100%** | Módulo `app/modules/exports/` con generación de documentos en memoria (`BytesIO`). Exportación en PDF profesional (`reportlab`) y hojas de cálculo Excel (`openpyxl`) para: 1) Acta Oficial de Resultados con sellos criptográficos y $k$-anonimato; 2) Padrón y Participación Electoral; 3) Bitácora Completa de Auditoría. |
+| **S2-09** | **Should** | Notificación por Correo de Reprogramaciones y Outbox | 2 pts | **100%** | Al modificar el cronograma (`PUT /elections/{id}/schedule`), se despacha automáticamente una notificación por correo a todos los votantes registrados en estado `ACTIVE`. Soporte de envío SMTP (`aiosmtplib`) y almacenamiento en bandeja persistente `notification_outbox` (`delivery_status: SENT_SMTP | STORED_DEMO_OUTBOX | FAILED`) consultable desde la UI. |
+| **S2-10** | **Could** | Autoinscripción Ciudadana con Aprobación Administrativa | 3 pts | **100%** | Soporte de modo de elección `OPEN_WITH_APPROVAL`. Endpoint público `POST /api/v1/public/elections/{id}/self-register` que registra votantes en estado `PENDING_APPROVAL`. Bandeja de gestión para el `ADMIN_GENERAL` con aprobación (`POST /voters/{id}/approve`) y rechazo con causal formal (`POST /voters/{id}/reject`). |
+| **Spike Paillier** | **Obligatorio** | Spike de Cifrado Homomórfico Aditivo (Paillier) | — | **100%** | Motor `app/crypto/paillier_spike.py` basado en `phe`. Cifrado asimétrico de papeletas vectoriales, suma homomórfica de cifrados en urna agrupada por circunscripción y prefijo de segmento, y descifrado final verificado. Endpoint de benchmark `POST /api/v1/crypto/paillier-spike-benchmark` con medición de latencias y confirmación de equivalencia matemática: $\text{Decrypt}(\prod E(v_i)) = \sum v_i$. |
 
 ---
 
@@ -62,284 +80,161 @@ Su diseño arquitectónico garantiza la integridad soberana del proceso electora
 
 ```text
 votoseguro/
-├── README.md                               # Documentación principal del repositorio en GitHub
-├── resumen.md                              # Resumen ejecutivo sincronizado
-├── docker-compose.yml                      # Orquestación de desarrollo local (Postgres, API, Worker, Web, Mailpit)
-├── render.yaml                             # Definición de infraestructura como código (IaC) para Render
-├── pnpm-workspace.yaml                     # Configuración de workspaces frontend/paquetes
-├── package.json                            # Scripts raíz, dependencias y configuración pnpm
-├── .env.example                            # Plantilla documentada de variables de entorno
-├── .gitignore                              # Reglas de exclusión para Python, Node, temporales y credenciales
-├── docs/
-│   ├── DECISIONES.md                       # Decisiones de Arquitectura de Software (ADR 001 - 012)
-│   └── PROGRESO.md                         # Cuadro de mando y seguimiento de historias (14/14 completadas)
+├── README.md                               # Documentación general del repositorio
+├── resumen.md                              # Resumen ejecutivo de implementación sincronizado
+├── docker-compose.yml                      # Orquestación de contenedores locales
+├── render.yaml                             # IaC para Render (FastAPI + Worker)
+├── pnpm-workspace.yaml                     # Workspaces frontend y contratos
+├── package.json                            # Scripts raíz
 ├── packages/
-│   └── api-client/                         # Paquete compartido de tipos TypeScript y contratos DTO
-│       ├── package.json
-│       └── src/
-│           └── index.ts                    # Tipos de Dominio (Elecciones, Candidatos, Padrón, Enlaces, Papeleta, Resultados)
+│   └── api-client/                         # Paquete de contratos TypeScript y DTOs
+│       ├── package.json / tsconfig.json
+│       └── src/index.ts                    # DTOs de Integridad, Merkle, Realtime, Exportaciones y Paillier
 ├── apps/
-│   ├── api/                                # Backend en FastAPI + SQLAlchemy 2.0 + Alembic
-│   │   ├── pyproject.toml / requirements.txt
-│   │   ├── Dockerfile
-│   │   ├── alembic.ini
+│   ├── api/                                # Backend en FastAPI + SQLAlchemy + Alembic
 │   │   ├── alembic/
-│   │   │   ├── env.py
 │   │   │   └── versions/
-│   │   │       ├── 0001_initial_sprint1_schema.py              # DDL de las 20 tablas + extensiones + triggers
-│   │   │       ├── 0002_sprint1_iteration2_reconciliation.py   # Reconciliación de columnas para Iteración 2
-│   │   │       └── 0003_sprint1_iteration3_voting_reconciliation.py # Reconciliación de enlaces y credenciales (Fase 3)
+│   │   │       ├── 0001_initial_sprint1_schema.py
+│   │   │       ├── 0002_iter2_reconcile.py
+│   │   │       ├── 0003_iter3_voting.py
+│   │   │       └── 0004_sprint2_integrity_realtime_exports.py # Migración Sprint 2 (Merkle, Chains, Outbox)
 │   │   ├── app/
-│   │   │   ├── main.py                     # Entrypoint FastAPI, lifespan, CORS, registro de routers y seed
 │   │   │   ├── core/
-│   │   │   │   ├── config.py               # Configuración con Pydantic Settings
-│   │   │   │   ├── security.py             # Hasheo Argon2 / bcrypt, firma y verificación JWT (User y VoterSession)
-│   │   │   │   ├── time.py                 # Abstracción de reloj canónico (Database / Fake)
-│   │   │   │   ├── exceptions.py           # Jerarquía de errores de dominio y mapeo HTTP
-│   │   │   │   └── dependencies.py         # Extracción de contexto tenant, voter session y guardias RBAC
-│   │   │   ├── db/
-│   │   │   │   ├── base.py                 # DeclarativeBase y tipos comunes
-│   │   │   │   ├── session.py              # Generador de sesiones async (asyncpg / aiosqlite)
-│   │   │   │   ├── seed_demo.py            # Sembrador CLI / programático de datos demo
-│   │   │   │   └── models/                 # Modelos ORM de las 20 tablas
-│   │   │   │       ├── organization.py     # organization, election_request
-│   │   │   │       ├── user.py             # user, admin_assignment
-│   │   │   │       ├── election.py         # election, schedule_change
-│   │   │   │       ├── structure.py        # voter_group, hierarchy_level, unit_node, filter_definition, contest, contest_breakdown, constituency, candidate
-│   │   │   │       ├── voter.py            # voter, import_batch, import_issue, registration_link
-│   │   │   │       ├── voting.py           # vote, voter_participation, voting_credential
-│   │   │   │       └── audit.py            # audit_log, ai_call_log
+│   │   │   │   ├── rate_limit.py           # SlowAPI Limiter, middleware y manejadores 429
+│   │   │   │   ├── config.py / security.py / dependencies.py
 │   │   │   ├── crypto/
-│   │   │   │   ├── nullifier.py            # Nullifiers ciegos: HMAC-SHA256(voter_id:constituency_id)
-│   │   │   │   ├── vote_codec.py           # Codec de votos (Plano / Paillier homomórfico)
-│   │   │   │   └── hashing.py              # SHA-256 canónico y encadenamiento de hashes
+│   │   │   │   ├── merkle.py               # Árbol de Merkle determinista y pruebas de inclusión
+│   │   │   │   ├── paillier_spike.py       # Motor de Cifrado Homomórfico Paillier y Benchmark
+│   │   │   │   ├── hashing.py / nullifier.py / vote_codec.py
+│   │   │   ├── db/models/
+│   │   │   │   ├── election.py             # merkle_root, registration_mode, votes_chain_head
+│   │   │   │   ├── voter.py                # PENDING_APPROVAL, rejection_reason, reviewed_by
+│   │   │   │   ├── voting.py               # chain_index, prev_hash, vote_hash
+│   │   │   │   ├── audit.py                # chain_index, prev_hash, entry_hash
+│   │   │   │   └── notification.py         # notification_outbox (S2-09)
 │   │   │   └── modules/
-│   │   │       ├── auth/                   # Login de usuarios y administradores, perfil, bloqueo fuerza bruta
-│   │   │       ├── audit/                  # Consulta y registro de bitácora
-│   │   │       ├── organizations/          # Gestión de tenants, solicitudes y endpoint platform/seed-demo
-│   │   │       ├── admins/                 # Delegación de ADMIN_SEGMENT
-│   │   │       ├── elections/              # CRUD de elección, validador de fechas y publicación (S1-06)
-│   │   │       ├── structure/              # S1-03 y S1-04: jerarquías, nodos, filtros y cargos
-│   │   │       ├── candidates/             # S1-05: candidatos y papeleta
-│   │   │       ├── voters/                 # S1-07 e IA-L2a: padrón, carga CSV y detector de duplicados
-│   │   │       ├── registration/           # S1-08: enlaces de registro, activación pública y roll_hash
-│   │   │       ├── ballots/                # S1-09: credenciales de votación, login votante, papeleta automática y voto ciego
-│   │   │       ├── results/                # S1-10: cómputo oficial, desgloses jerárquicos y k-anonimato
-│   │   │       └── scheduler/              # APScheduler worker con lock de PostgreSQL y congelamiento de roll_hash
-│   │   └── tests/                          # Suite de pruebas automatizadas (15 tests en 11 archivos)
-│   │       ├── conftest.py                 # Fixtures async y Mock TimeProvider
-│   │       ├── test_tenancy_isolation.py   # Verificación de aislamiento multi-tenant
-│   │       ├── test_auth_lockout.py        # Verificación de bloqueo tras 5 intentos
-│   │       ├── test_schedule_rules.py      # Verificación de reglas de edición de cronograma
-│   │       ├── test_scheduler_transitions.py # Transiciones temporales deterministas
-│   │       ├── test_hierarchy_and_contests.py # Jerarquías, paths, importador CSV y circunscripciones
-│   │       ├── test_publication_and_immutability.py # Validación de 6 reglas, RFC 8785 config_hash y 409 Conflict
-│   │       ├── test_voter_roll_and_duplicates.py # Guardia de fase, profundidad de nodo e IA-L2a
-│   │       ├── test_registration_links_and_roll_hash.py # Enlaces de registro, activación y sellado de padrón
-│   │       ├── test_automatic_ballot_and_atomic_cast.py # Login votante, papeleta automática, voto ciego y recibo
-│   │       ├── test_results_and_k_anonymity.py # Bloqueo 403 antes del cierre y k-anonimato en desgloses
-│   │       └── test_seed_demo.py           # Idempotencia y completitud del sembrador demo
-│   └── web/                                # Frontend en React 18 + Vite + TypeScript + Tailwind
-│       ├── package.json / vite.config.ts / tailwind.config.js / tsconfig.json
-│       ├── public/
-│       │   ├── _redirects                  # Configuración de rewrite para Cloudflare Pages
-│       │   └── shield-check.svg            # Favicon e isotipo institucional
+│   │   │       ├── integrity/              # Verificación de cadenas de votos, auditoría, Merkle y Paillier
+│   │   │       ├── realtime/               # WebSockets (/live), métricas en vivo y series por hora
+│   │   │       ├── exports/                # Generador en memoria de PDF (ReportLab) y Excel (OpenPyXL)
+│   │   │       ├── notifications/          # Despachador de correos de cronograma y bandeja outbox
+│   │   │       ├── registration/           # Autoinscripción pública y aprobación/rechazo
+│   │   │       └── ballots/ / results/ / scheduler/ / structure/ / voters/
+│   │   └── tests/                          # Suite completa de pruebas (21 tests automatizados)
+│   │       ├── test_vote_and_audit_hash_chains.py          # Verificación de cadenas y detección de manipulación
+│   │       ├── test_merkle_tree_and_inclusion_proof.py      # Árbol de Merkle, prueba de inclusión y validación
+│   │       ├── test_realtime_dashboard_and_exports.py       # WebSockets, métricas en vivo, Invariante #11 y exports
+│   │       ├── test_rate_limiting_notifications_and_self_reg.py # SlowAPI, correos y autoinscripción con aprobación
+│   │       ├── test_paillier_homomorphic_spike.py           # Equivalencia homomórfica y benchmark Paillier
+│   │       └── [15 tests automatizados del Sprint 1]
+│   └── web/                                # Frontend React 18 + Vite + TypeScript + Tailwind
 │       └── src/
-│           ├── main.tsx / App.tsx / index.css
-│           ├── lib/
-│           │   ├── api.ts                  # Cliente HTTP Fetch tipado (JSON y multipart FormData)
-│           │   ├── auth-store.ts           # Store reactivo de autenticación administrativa y sesión de votante
-│           │   └── timezone.ts             # Utilidades de conversión y formateo de fechas
-│           ├── components/
-│           │   ├── layout/
-│           │   │   ├── TopSecurityBanner.tsx     # Barra superior criptográfica y de estado
-│           │   │   └── InstitutionalShell.tsx    # Layout institucional con navegación completa
-│           │   └── electoral/
-│           │       ├── ElectionStateStepper.tsx       # Línea de tiempo visual del ciclo de vida
-│           │       ├── PhaseCountdownClock.tsx        # Cuenta regresiva sincronizada
-│           │       ├── CryptographicHashBadge.tsx     # Visualizador de hashes SHA-256
-│           │       ├── SealStatusStamp.tsx            # Sellos digitales de cera según fase electoral
-│           │       ├── ScheduleEditModal.tsx          # Modal con justificación obligatoria
-│           │       ├── ScheduleAuditTimeline.tsx      # Registro histórico de alteraciones de fecha
-│           │       ├── HierarchyTreeExplorer.tsx      # Explorador de árbol organizacional + importador CSV
-│           │       ├── OfficialBallotPreviewCard.tsx  # Simulador de papeleta en papel marfil con Blanco/Nulo
-│           │       ├── PublicationCeremonyModal.tsx   # Ceremonia de publicación con checklist y config_hash
-│           │       └── DuplicateAdjudicationDrawer.tsx # Drawer comparativo de arbitraje humano IA-L2a
-│           └── pages/
-│               ├── PublicLandingRequestPage.tsx       # Portal público con formulario institucional
-│               ├── LoginPage.tsx                      # Login con contador de intentos y bloqueo
-│               ├── PlatformAdminConsolePage.tsx       # Consola de Superadmin con botón Sembrar Datos Demo
-│               ├── ElectionWorkspacePage.tsx          # Panel de gestión electoral
-│               ├── StructureArchitectPage.tsx         # Arquitecto de grupos, niveles, nodos, cargos y filtros
-│               ├── CandidatesBallotStudioPage.tsx     # Estudio de candidatos y previsualización de papeleta
-│               ├── VoterRollRegistrationPanelPage.tsx # Panel de padrón, CSV, IA-L2a, Enlaces S1-08 y Credenciales S1-09
-│               ├── ScheduleControlPanelPage.tsx       # Centro de control del cronograma electoral
-│               ├── DelegateAdminsPage.tsx             # Administración de administradores segmentados
-│               ├── PublicVoterRegistrationPage.tsx    # Portal público de activación de votantes (/register/:token)
-│               ├── VoterBallotBoothPage.tsx           # Cabina oficial de votación (/vote) con papeleta y recibo
-│               └── ElectionResultsTallyPage.tsx       # Centro de cómputo y resultados oficiales (/results)
+│           ├── pages/
+│           │   ├── LiveMonitoringDashboardPage.tsx       # Monitoreo en vivo WebSockets + gráfico de votos/hora
+│           │   ├── CryptographicIntegrityCenterPage.tsx  # Centro de Cadenas de Hash, Árbol Merkle y Spike Paillier
+│           │   ├── PublicReceiptVerifierPage.tsx         # Verificador público de comprobantes electorales
+│           │   ├── PublicSelfRegistrationPage.tsx        # Portal público de autoinscripción ciudadana
+│           │   ├── VoterRollRegistrationPanelPage.tsx    # Padrón + bandeja de aprobación de autoinscripciones
+│           │   ├── ScheduleControlPanelPage.tsx          # Cronograma + bandeja outbox de correos
+│           │   ├── ElectionResultsTallyPage.tsx          # Cómputo oficial + descargas de PDF y Excel
+│           │   └── [Otras páginas del workspace institucional]
+│           └── components/layout/InstitutionalShell.tsx  # Enlaces de navegación con Centro de Integridad y Live
 ```
 
 ---
 
-## 4. Detalle Técnico de Base de Datos y Migraciones
+## 4. Detalle de Pruebas Automatizadas (21 de 21 Pasando — 100%)
 
-La base de datos cuenta con **20 tablas modeladas**, extensiones criptográficas y de texto, y triggers de seguridad ejecutados sobre PostgreSQL 17 (Supabase):
-
-1. **Extensiones activadas:** `pgcrypto`, `pg_trgm`, `fuzzystrmatch`.
-2. **Historial de Migraciones Alembic:**
-   - `0001_initial_sprint1_schema.py`: Creación integral de las 20 tablas, relaciones, claves foráneas, índices de unicidad y trigger inmutable.
-   - `0002_iter2_reconcile.py`: Ajuste de compatibilidad para identificadores de versión Alembic (`VARCHAR(128)`) y conciliación de columnas estructurales.
-   - `0003_iter3_voting.py`: Adición de soporte para tokens previsualizables de demostración en `registration_link` (`raw_token`) y `voting_credential` (`demo_code`) para facilitar la auditoría sin requerir SMTP externo obligatorio.
-3. **Trigger de Inmutabilidad de Auditoría:**
-   ```sql
-   CREATE OR REPLACE FUNCTION prevent_audit_log_mutation() RETURNS trigger AS $$
-   BEGIN
-       RAISE EXCEPTION 'audit_log is append-only. UPDATE and DELETE operations are forbidden.';
-   END;
-   $$ LANGUAGE plpgsql;
-
-   CREATE TRIGGER trg_audit_log_immutable
-   BEFORE UPDATE OR DELETE ON audit_log
-   FOR EACH ROW EXECUTE FUNCTION prevent_audit_log_mutation();
-   ```
-
----
-
-## 5. Arquitectura de Seguridad e Invariantes Criptográficas
-
-1. **Protección de Credenciales de Usuario:** Hasheo con **Argon2id** (`argon2-cffi`), con fallback automático a **bcrypt**.
-2. **Defensa contra Ataques de Fuerza Bruta:** Bloqueo automático de cuentas de usuario tras **5 intentos fallidos consecutivos** durante un periodo de **15 minutos** (`Retry-After: 900`).
-3. **Blindaje de Voto Ciego y Nullifiers (Invariante #9 y #8):**
-   - La tabla `vote` **no contiene la columna `voter_id`**.
-   - Para impedir el doble voto sin romper el anonimato, se utiliza un *nullifier* criptográfico:
-     $$\text{nullifier} = \text{HMAC-SHA256}(\text{election.secret\_key}, \text{voter\_id} \mathbin{\Vert} \text{":"} \mathbin{\Vert} \text{constituency\_id})$$
-   - El *nullifier* es único por votante y circunscripción, registrándose en `voter_participation` y en el registro del voto, garantizando matemáticamente que ningún votante pueda emitir más de un voto por cargo.
-4. **Papeleta Automática Resuelta por Jerarquía:**
-   - Al autenticarse el votante en `/voter/login`, el backend localiza su grupo (`group_id`) y su nodo territorial (`unit_node.path`).
-   - Para cada cargo (`Contest`) del grupo, se busca la circunscripción (`Constituency`) cuyo nodo ancestro coincide con el `path` del votante.
-   - El votante recibe exclusivamente los cargos que le corresponden según su ubicación o estamento.
-5. **Depósito Atómico Transaccional y Recibo Criptográfico:**
-   - La emisión del voto se ejecuta en una transacción única ACID (`POST /api/v1/ballot/cast`):
-     1. Valida que la credencial esté activa y no haya sido utilizada (`used_at IS NULL`).
-     2. Verifica que ninguno de los nullifiers haya sido previamente depositado.
-     3. Inserta los votos codificados en la tabla `vote` con timestamp truncado al minuto (**Invariante #17**).
-     4. Calcula el hash acumulado del recibo:
-        $$\text{receipt\_hash} = \text{SHA-256}(\text{election\_id} \mathbin{\Vert} \text{timestamp} \mathbin{\Vert} \text{nullifiers\_hash})$$
-     5. Marca la credencial como usada (`used_at = now`) y registra la participación en `voter_participation`.
-   - El votante recibe su recibo descargable para verificación posterior en `GET /api/v1/receipts/{receipt_hash}`.
-6. **Escrutinio Sellado y $k$-Anonimato (Invariantes #11 y #12):**
-   - Durante la votación (`VOTING_OPEN`), el endpoint `/elections/{id}/results` retorna estrictamente `HTTP 403 Forbidden` (*"Los resultados solo pueden consultarse una vez cerrada la votación"*).
-   - Al cerrarse la votación (`VOTING_CLOSED`), se calcula la tabulación oficial exacta de votos totales por candidato, blanco y nulo.
-   - En los desgloses configurados (`ContestBreakdown` por jerarquía o filtros), cualquier celda que contenga menos de $k$ votos ($k=5$ por defecto) se redacta con `is_redacted = true` y `vote_count = null`, impidiendo la reidentificación de votantes en segmentos pequeños.
-7. **Congelamiento de Padrón y `roll_hash` (Invariante #5):**
-   - Al finalizar el registro, el sistema genera la lista canónica de votantes activos ordenada deterministamente por `document_id` y emite el `roll_hash` (SHA-256 RFC 8785), sellando el padrón para siempre.
-
----
-
-## 6. Verificación y Suite de Pruebas Automatizadas
-
-La suite completa de pruebas automatizadas con `pytest` y `pytest-asyncio` en `apps/api/tests/` ejecutó **15 suites con 100% de éxito**:
+La suite completa de pruebas se ejecuta mediante `pytest` sobre SQLite en memoria y PostgreSQL:
 
 ```powershell
 cd votoseguro/apps/api
-$env:PYTHONPATH="."
-.\.venv\Scripts\python -m pytest tests
+.\.venv\Scripts\python.exe -m pytest
 ```
 
 **Resultado de ejecución:**
 ```text
-======================= 15 passed, 8 warnings in 4.01s ========================
+============================= test session starts =============================
+platform win32 -- Python 3.14.0, pytest-9.2.0, pluggy-1.7.0
+rootdir: C:\Users\Ale\Documents\SW1 2-2026\PROYECTO GRUPAL\votoseguro\apps\api
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.16.0, asyncio-1.4.1.post1
+collected 21 items
+
+tests\test_auth_lockout.py .                                             [  4%]
+tests\test_automatic_ballot_and_atomic_cast.py .                         [  9%]
+tests\test_hierarchy_and_contests.py ..                                  [ 19%]
+tests\test_merkle_tree_and_inclusion_proof.py .                          [ 23%]
+tests\test_paillier_homomorphic_spike.py ..                              [ 33%]
+tests\test_publication_and_immutability.py .                             [ 38%]
+tests\test_rate_limiting_notifications_and_self_reg.py .                 [ 42%]
+tests\test_realtime_dashboard_and_exports.py .                           [ 47%]
+tests\test_registration_links_and_roll_hash.py .                         [ 52%]
+tests\test_results_and_k_anonymity.py .                                  [ 57%]
+tests\test_schedule_rules.py ..                                          [ 66%]
+tests\test_scheduler_transitions.py .                                    [ 71%]
+tests\test_seed_demo.py ..                                               [ 80%]
+tests\test_tenancy_isolation.py .                                        [ 85%]
+tests\test_vote_and_audit_hash_chains.py .                               [ 90%]
+tests\test_voter_roll_and_duplicates.py ..                               [100%]
+======================= 21 passed, 13 warnings in 4.90s =======================
 ```
 
-### Detalle de las 15 Pruebas Automatizadas:
-1. `test_tenancy_isolation.py`: Comprueba que un administrador de la Organización A no puede acceder a elecciones o recursos de la Organización B.
-2. `test_auth_lockout.py`: Comprueba que tras 5 intentos fallidos con contraseña errónea, la cuenta se bloquea por 15 minutos rechazando el 6to intento con HTTP 403 y `Retry-After: 900`.
-3. `test_schedule_rules.py`: Comprueba el rechazo de órdenes cronológicos inválidos y el rechazo estricto de edición de fechas de registro una vez iniciada la votación (`VOTING_OPEN`).
-4. `test_scheduler_transitions.py`: Comprueba que al avanzar el reloj con `FakeTimeProvider`, el scheduler transiciona automáticamente de `DRAFT` a `REGISTRATION_OPEN` y registra la auditoría.
-5. `test_hierarchy_and_contests.py`: Comprueba la jerarquía de niveles, árbol de nodos con ruta materializada `/PATH/`, importación CSV topológica, filtros JSONB y autogeneración de circunscripciones.
-6. `test_publication_and_immutability.py`: Comprueba la validación de 6 reglas de cobertura, el cálculo determinista de `config_hash` mediante RFC 8785 y el bloqueo estructural `409 Conflict` post-publicación.
-7. `test_voter_roll_and_duplicates.py`: Comprueba la guardia de fase `REGISTRATION_OPEN`, validación de profundidad de nodo, importador CSV tolerante a fallos, detector IA-L2a y resolución de duplicados.
-8. `test_registration_links_and_roll_hash.py`: Comprueba la creación de enlaces de registro por grupo/nodo, la activación pública mediante CI en `/register/:token`, el despacho de invitaciones y el cálculo canónico de `roll_hash` al cerrar el registro.
-9. `test_automatic_ballot_and_atomic_cast.py`: Comprueba la emisión de credenciales para votantes activos, login de votante (`VOTER_SESSION`), resolución dinámica de papeleta según nodo jerárquico, emisión atómica de votos con nullifiers, ausencia de `voter_id` en `vote` (Invariante #9), timestamp truncado al minuto (Invariante #17) y verificación pública de recibo.
-10. `test_results_and_k_anonymity.py`: Comprueba el bloqueo `403 Forbidden` de resultados antes de `VOTING_CLOSED` (Invariante #11), el cómputo exacto de votos tras el cierre y la aplicación estricta de $k$-anonimato ($k=5$) en desgloses jerárquicos (Invariante #12).
-11. `test_seed_demo.py`: Comprueba la idempotencia del script `seed:demo`, el sembrado completo de la Universidad EL GRAN ESTUDIO y Elecciones Nacionales Ecuador, los votantes con casos de homonimia y la ejecución exitosa del endpoint `POST /api/v1/platform/seed-demo`.
+---
+
+## 5. Compilación del Frontend en Producción
+
+El frontend web se compila sin errores de tipos TypeScript ni advertencias bloqueantes:
+
+```powershell
+cd votoseguro/apps/web
+pnpm --filter @votoseguro/web build
+```
+
+**Resultado de ejecución:**
+```text
+$ tsc && vite build
+vite v5.4.21 building for production...
+transforming...
+✓ 1650 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   1.09 kB │ gzip:   0.62 kB
+dist/assets/index-DL2ifWvO.css   43.92 kB │ gzip:   7.64 kB
+dist/assets/index-CotvPEhp.js   543.17 kB │ gzip: 128.15 kB
+✓ built in 2.92s
+```
 
 ---
 
-## 7. Despliegue en la Nube e Infraestructura en Producción
+## 6. Control de Versiones e Historial de Commits
 
-Toda la plataforma opera sobre una arquitectura cloud de tres capas en producción:
-
-### Capa 1: Base de Datos PostgreSQL 17 (Supabase)
-- **Instancia:** Aprovisionada en AWS (`aws-1-us-west-2.pooler.supabase.com:5432`).
-- **Migraciones Aplicadas:** `0001_initial_sprint1_schema`, `0002_iter2_reconcile` y `0003_iter3_voting`.
-- **Auditoría Blindada:** Trigger PostgreSQL `trg_audit_log_immutable` activo impidiendo mutaciones en la bitácora.
-- **Datos Sembrados:** Ejecutado `seed:demo` con organizaciones de prueba activas.
-
-### Capa 2: Backend API & Scheduler Autónomo (Render)
-- **Servicio:** Web Service en Render (`votoseguro-api`).
-- **URL Pública:** `https://votoseguro-api-plyu.onrender.com`
-- **Monitoreo:** `GET /api/v1/health` $\rightarrow$ `status: online`, `database: healthy`.
-- **Superadmin:** `admin@votoseguro.org` inicializado de manera idempotente.
-- **Worker Autónomo:** APScheduler embebido activo con `pg_advisory_lock(849201)` ejecutando ciclos de evaluación cada 10 segundos.
-
-### Capa 3: Frontend Web SPA (Cloudflare Pages)
-- **Proyecto:** `votoseguro` en Cloudflare Pages conectado a la rama `main` de GitHub.
-- **URL Base de la API:** `VITE_API_BASE_URL=https://votoseguro-api-plyu.onrender.com/api/v1`.
-- **Enrutamiento:** Redirección SPA configurada en `_redirects` (`/* /index.html 200`).
-- **Compilación de Producción:** Verificada con `pnpm --filter @votoseguro/web build` (0 errores TypeScript).
-
----
-
-## 8. Control de Versiones e Historial de Commits
-
-El repositorio se encuentra alojado y sincronizado en:
+El repositorio se encuentra alojado en GitHub:
 - **URL:** [https://github.com/Alejandro-Melgar77/votoseguro](https://github.com/Alejandro-Melgar77/votoseguro)
 - **Rama:** `main`
 
-### Historial de Commits del Sprint 1:
+### Historial de Commits Principales:
 1. `2025f4e`: `feat: initial architecture sprint 1 v1.0 (s1-00, s1-01, s1-02, s1-11, s1-12)`
-2. `787b5c1`: `docs: add executive implementation summary resumen.md`
-3. `6d78d70`: `fix(db): separate trigger DDL statements for asyncpg compatibility`
-4. `03a3056`: `chore(infra): configure render.yaml with Supabase PostgreSQL connection`
-5. `d5f0db0`: `chore(infra): add plan free to render.yaml`
-6. `ec1feba`: `fix(api): add greenlet dependency and support dynamic PORT in Dockerfile`
-7. `d3b828a`: `chore(infra): update render.yaml with IPv4 pooler connection string`
-8. `0c21caf`: `fix(web): unignore and track src/lib files and allow esbuild build script`
-9. `083f0f5`: `docs: add project README.md and trigger deployment`
-10. `bc4013c`: `docs: update resumen.md with cloud deployments and infrastructure fixes`
-11. `e95e25a`: `feat(sprint-1): complete iteration 2 - electoral structure, candidate ballot studio, publication config hash, voter roll and duplicate detection`
-12. `e575e80`: `fase 2 sprint 1`
-13. `a9b1c0e` *(por publicar)*: `feat(sprint-1): complete phase 3 v1.0 - voter activation links, automatic ballot, atomic blind voting, k-anonymity tally and seed demo`
+2. `e95e25a`: `feat(sprint-1): complete iteration 2 - electoral structure, candidate ballot studio, publication config hash, voter roll and duplicate detection`
+3. `e575e80`: `fase 2 sprint 1`
+4. `a9b1c0e`: `feat(sprint-1): complete phase 3 v1.0 - voter activation links, automatic ballot, atomic blind voting, k-anonymity tally and seed demo`
+5. `feat(sprint-2): complete phase 1 v2.0 - vote & audit hash chains, merkle tree proofs, live websocket dashboard, pdf/xlsx exports, rate limiting, schedule notifications and paillier spike`
 
 ---
 
-## 9. Manual Rápido de Validación y Flujo de Demostración
+## 7. Guía de Demostración y Verificación de Nuevas Capacidades (Sprint 2 Fase 1)
 
-Para evaluar y auditar la plataforma de forma integral de extremo a extremo:
-
-1. **Sembrado Demo:**
-   - Iniciar sesión como `admin@votoseguro.org` (clave `AdminPlatform2026!`) en `/login`.
-   - Entrar a la Consola de Plataforma (`/platform/console`) y presionar el botón **"Sembrar Datos Demo (seed:demo)"**.
-2. **Activación de Votantes por Enlace (S1-08):**
-   - Entrar a la elección *"Elecciones Generales Universitarias 2026"* $\rightarrow$ Pestaña **"Padrón Electoral"** (`/elections/:id/voters`).
-   - Ir a la sub-pestaña **"Enlaces de Registro (S1-08)"**, crear un enlace o copiar un enlace existente (`/register/:token`).
-   - Abrir el enlace en una ventana de incógnito, ingresar el CI de un votante importado o invitado (ej. `CI-8001002` o `CI-8001008`), verificar la emisión de su Certificado Digital de Registro y constatar que su estado cambia a `ACTIVE`.
-3. **Congelamiento de Padrón y Despacho de Credenciales (S1-09):**
-   - En la pestaña de padrón, presionar **"Congelar Padrón (roll_hash)"** para sellar el censo electoral con hash determinista.
-   - Ir a la sub-pestaña **"Credenciales Demo (S1-09)"** para inspeccionar las credenciales personales generadas (`VS-XXXX-XXXX-XXXX`).
-   - Presionar **"Abrir Votación Ahora"** para cambiar el estado de la elección a `VOTING_OPEN`.
-4. **Cabina de Votación y Depósito Ciego (S1-09):**
-   - Navegar a `/vote` en una ventana de incógnito.
-   - Ingresar el CI (ej. `CI-8001001` o `CI-8001002`) y el código de credencial copiado.
-   - Constatar la **Papeleta Automática** personalizada (cargos de Rector, Decano FICCT y Director de Carrera Informática).
-   - Seleccionar candidatos (o Voto en Blanco / Voto Nulo) y presionar **"Confirmar y Depositar Voto Ciego"**.
-   - Descargar el Recibo Criptográfico con el `receipt_hash` y verificar su presencia pública en el verificador de actas.
-5. **Comprobación de Bóveda Sellada (Invariante #11):**
-   - Con la elección aún en `VOTING_OPEN`, ingresar al Centro de Cómputo (`/elections/:id/results`).
-   - Constatar la advertencia de Bóveda Criptográfica Sellada con el candado digital y el indicador de participación en tiempo real (los resultados parciales están estrictamente ocultos).
-6. **Cierre de Votación y Escrutinio con $k$-Anonimato (S1-10):**
-   - Como Administrador General, presionar **"Cerrar Votación Oficialmente"**.
-   - El sistema calcula el escrutinio total exacto y desbloquea el acta digital de resultados.
-   - En la sección de desgloses jerárquicos y por filtros, verificar la aplicación del **$k$-anonimato**: los nodos con menos de 5 votos aparecen redactados con la insignia *"Protegido por k-anonimato (< 5 votos)"*.
+1. **Centro de Integridad Criptográfica (`/elections/:id/integrity`):**
+   - **Cadena de Votos:** Presionar *"Ejecutar Verificación Completa"*. Comprueba que todos los votos emitidos forman una cadena ininterrumpida de hashes SHA-256 desde el bloque génesis. Si se altera un voto directamente en base de datos, el verificador marca la urna como comprometida indicando el índice exacto de ruptura.
+   - **Cadena de Auditoría:** Verifica la bitácora inmutable encadenada de eventos de auditoría y llamadas a IA.
+   - **Explorador del Árbol de Merkle:** Ingresar una cédula de identidad (CI) de un votante activo. El sistema genera la prueba de inclusión logarítmica y permite verificar con un clic la coincidencia matemática contra la raíz oficial (`merkle_root`) sin divulgar el resto del padrón.
+   - **Laboratorio Homomórfico Paillier:** Seleccionar tamaño de clave (1024 o 2048 bits) y número de votos simulados. Ejecutar el benchmark y comprobar la insignia de equivalencia matemática exacta: $\text{Decrypt}(\prod E(v_i)) = \sum v_i$, junto con la tabla de tiempos de cifrado y adición homomórfica.
+2. **Dashboard de Monitoreo en Tiempo Real (`/elections/:id/live`):**
+   - Conectar mediante WebSockets para observar la actualización en tiempo real de participación ciudadana, desglose por estamentos/nodos y curva de votos por hora sin vulnerar la Invariante #11 (urnas selladas).
+3. **Descarga de Reportes Oficiales en PDF y Excel:**
+   - En `/elections/:id/results` o en el panel de monitoreo, presionar *"Acta Oficial PDF"* y *"Escrutinio Excel"*. El sistema genera y descarga al instante los documentos institucionales sellados criptográficamente y protegidos por $k$-anonimato.
+4. **Verificación Universal de Comprobantes (`/verify-receipt`):**
+   - Ingresar el hash de un recibo emitido al votar. El verificador demuestra de forma pública que el voto reside íntegro en la urna criptográfica sin divulgar la opción sufragada.
+5. **Autoinscripción Pública con Aprobación (`/elections/:id/self-register`):**
+   - En una elección configurada con modo `OPEN_WITH_APPROVAL`, un ciudadano envía su formulario de registro quedando en estado `PENDING_APPROVAL`.
+   - El Administrador General accede a la pestaña *"Autoinscripciones S2-10"* en el padrón para aprobar o rechazar la solicitud con causal debidamente auditada.

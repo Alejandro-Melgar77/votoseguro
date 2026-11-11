@@ -125,6 +125,18 @@ def require_admin_general(
     return tenant
 
 
+def require_roles(*allowed_roles: UserRole):
+    """Exige que el usuario autenticado tenga uno de los roles especificados."""
+    def role_checker(current_user: Annotated[User, Depends(get_current_user)]) -> User:
+        if current_user.role not in allowed_roles:
+            raise ForbiddenException(
+                f"Acceso denegado: se requiere uno de los siguientes roles: {[r.value for r in allowed_roles]}"
+            )
+        return current_user
+
+    return role_checker
+
+
 @dataclass
 class VoterSessionContext:
     voter_id: uuid.UUID

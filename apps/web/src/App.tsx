@@ -13,6 +13,10 @@ import { VoterRollRegistrationPanelPage } from '@/pages/VoterRollRegistrationPan
 import { PublicVoterRegistrationPage } from '@/pages/PublicVoterRegistrationPage';
 import { VoterBallotBoothPage } from '@/pages/VoterBallotBoothPage';
 import { ElectionResultsTallyPage } from '@/pages/ElectionResultsTallyPage';
+import { LiveMonitoringDashboardPage } from '@/pages/LiveMonitoringDashboardPage';
+import { CryptographicIntegrityCenterPage } from '@/pages/CryptographicIntegrityCenterPage';
+import { PublicReceiptVerifierPage } from '@/pages/PublicReceiptVerifierPage';
+import { PublicSelfRegistrationPage } from '@/pages/PublicSelfRegistrationPage';
 
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
@@ -44,6 +48,9 @@ export const App: React.FC = () => {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register/:token" element={<PublicVoterRegistrationPage />} />
         <Route path="/vote" element={<VoterBallotBoothPage />} />
+        <Route path="/verify-receipt" element={<PublicReceiptVerifierPage />} />
+        <Route path="/verify-receipt/:receiptHash" element={<PublicReceiptVerifierPage />} />
+        <Route path="/elections/:electionId/self-register" element={<PublicSelfRegistrationPage />} />
 
         {/* Consola de Operador de Plataforma */}
         <Route
@@ -111,10 +118,28 @@ export const App: React.FC = () => {
         />
 
         <Route
+          path="/elections/:electionId/live"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN_GENERAL', 'ADMIN_SEGMENT', 'OBSERVER']}>
+              <LiveMonitoringDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/elections/:electionId/results"
           element={
             <ProtectedRoute allowedRoles={['ADMIN_GENERAL', 'ADMIN_SEGMENT', 'OBSERVER']}>
               <ElectionResultsTallyPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/elections/:electionId/integrity"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN_GENERAL', 'ADMIN_SEGMENT', 'OBSERVER']}>
+              <CryptographicIntegrityCenterPage />
             </ProtectedRoute>
           }
         />

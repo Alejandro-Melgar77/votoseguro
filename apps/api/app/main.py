@@ -8,7 +8,10 @@ from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, text
 
+from slowapi.errors import RateLimitExceeded
+
 from app.core.config import settings
+from app.core.rate_limit import limiter, rate_limit_exceeded_handler
 from app.core.security import get_password_hash
 from app.core.time import default_time_provider
 from app.db.models.user import User, UserRole, UserStatus
@@ -19,7 +22,11 @@ from app.modules.auth.router import router as auth_router
 from app.modules.ballots.router import router as ballots_router
 from app.modules.candidates.router import router as candidates_router
 from app.modules.elections.router import router as elections_router
+from app.modules.exports.router import router as exports_router
+from app.modules.integrity.router import router as integrity_router
+from app.modules.notifications.router import router as notifications_router
 from app.modules.organizations.router import router as organizations_router
+from app.modules.realtime.router import router as realtime_router
 from app.modules.registration.router import router as registration_router
 from app.modules.results.router import router as results_router
 from app.modules.structure.router import router as structure_router
@@ -103,6 +110,10 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
+# S2-06: SlowAPI Limiter y Manejador de Error 429
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
 # Configuración de CORS
 app.add_middleware(
     CORSMiddleware,
@@ -117,6 +128,8 @@ api_v1_prefix = "/api/v1"
 app.include_router(auth_router, prefix=api_v1_prefix)
 app.include_router(organizations_router, prefix=api_v1_prefix)
 app.include_router(elections_router, prefix=api_v1_prefix)
+app.include_router(exports_router, prefix=api_v1_prefix)
+app.include_router(notifications_router, prefix=api_v1_prefix)
 app.include_router(structure_router, prefix=api_v1_prefix)
 app.include_router(candidates_router, prefix=api_v1_prefix)
 app.include_router(voters_router, prefix=api_v1_prefix)
@@ -125,6 +138,8 @@ app.include_router(ballots_router, prefix=api_v1_prefix)
 app.include_router(results_router, prefix=api_v1_prefix)
 app.include_router(admins_router, prefix=api_v1_prefix)
 app.include_router(audit_router, prefix=api_v1_prefix)
+app.include_router(integrity_router, prefix=api_v1_prefix)
+app.include_router(realtime_router, prefix=api_v1_prefix)
 
 
 @app.get("/api/v1/health", status_code=status.HTTP_200_OK, tags=["Salud"])

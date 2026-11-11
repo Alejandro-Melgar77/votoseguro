@@ -53,6 +53,16 @@ class Settings(BaseSettings):
     # Inspector de Credenciales de Demostración (Sprint 1)
     DEMO_CREDENTIAL_INSPECTOR_ENABLED: bool = True
 
+    # S2-06: Rate Limiting
+    RATE_LIMIT_ENABLED: bool = True
+
+    # S2-09: Notificaciones SMTP
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = 587
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
+    SMTP_FROM_EMAIL: str = "notificaciones@votoseguro.org"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

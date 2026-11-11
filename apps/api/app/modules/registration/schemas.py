@@ -83,6 +83,57 @@ class PublicVoterActivationResponse(BaseModel):
 class RollHashFreezeResponse(BaseModel):
     election_id: uuid.UUID
     roll_hash: str
+    merkle_root: str | None = None
     active_voters_count: int
     registration_frozen_at: datetime
     status: str
+
+
+# S2-10: Autoinscripción con Aprobación
+class SelfRegistrationNodeDTO(BaseModel):
+    id: uuid.UUID
+    name: str
+    code: str
+    path: str
+    depth: int
+
+
+class SelfRegistrationGroupDTO(BaseModel):
+    id: uuid.UUID
+    name: str
+    code: str
+    nodes: list[SelfRegistrationNodeDTO]
+
+
+class SelfRegistrationInfoResponse(BaseModel):
+    election_id: uuid.UUID
+    election_name: str
+    registration_mode: str
+    status: str
+    is_open: bool
+    groups: list[SelfRegistrationGroupDTO]
+    filter_definitions: list[dict] = []
+
+
+class SelfRegistrationRequest(BaseModel):
+    document_id: str
+    full_name: str
+    email: str | None = None
+    phone: str | None = None
+    group_id: uuid.UUID
+    node_id: uuid.UUID
+    attributes: dict = {}
+
+
+class SelfRegistrationResponse(BaseModel):
+    success: bool
+    message: str
+    voter_id: uuid.UUID
+    document_id: str
+    full_name: str
+    status: str
+
+
+class RejectVoterRequest(BaseModel):
+    reason: str
+

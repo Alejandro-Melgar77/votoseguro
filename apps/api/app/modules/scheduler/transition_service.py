@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import TimeProvider
 from app.crypto.hashing import canonical_json, sha256_hex
+from app.crypto.merkle import MerkleTree, compute_voter_leaf_hash
 from app.db.models.election import Election, ElectionStatus
 from app.db.models.voter import LinkStatus, RegistrationLink, Voter, VoterStatus
 from app.db.models.voting import VotingCredential
@@ -110,7 +111,22 @@ async def run_scheduler_tick(session: AsyncSession, time_provider: TimeProvider)
             for v in active_voters
         ]
         roll_hash = sha256_hex(canonical_json(canonical_roll_data))
+
+        leaves = [
+            compute_voter_leaf_hash(
+                election_id=str(election.id),
+                document_id=v.document_id,
+                group_code=v.group.code if getattr(v, "group", None) else "",
+                node_path=v.node.path if getattr(v, "node", None) else "",
+                status="ACTIVE",
+            )
+            for v in active_voters
+        ]
+        merkle_tree = MerkleTree(leaves, str(election.id))
+        merkle_root = merkle_tree.root
+
         election.roll_hash = roll_hash
+        election.merkle_root = merkle_root
 
         # Expirar enlaces de registro activos
         await session.execute(

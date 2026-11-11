@@ -8,6 +8,10 @@ import {
   ArrowLeft,
   AlertCircle,
   RefreshCw,
+  Mail,
+  Send,
+  Eye,
+  CheckCircle2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
@@ -18,7 +22,12 @@ import { CryptographicHashBadge } from '@/components/electoral/CryptographicHash
 import { SealStatusStamp } from '@/components/electoral/SealStatusStamp';
 import { ScheduleEditModal } from '@/components/electoral/ScheduleEditModal';
 import { ScheduleAuditTimeline } from '@/components/electoral/ScheduleAuditTimeline';
-import type { Election, ScheduleChange, ScheduleUpdateRequest } from '@votoseguro/api-client';
+import type {
+  Election,
+  ScheduleChange,
+  ScheduleUpdateRequest,
+  NotificationOutboxItem,
+} from '@votoseguro/api-client';
 import { formatElectoralDateTime } from '@/lib/timezone';
 
 export const ScheduleControlPanelPage: React.FC = () => {
@@ -27,6 +36,8 @@ export const ScheduleControlPanelPage: React.FC = () => {
 
   const [election, setElection] = useState<Election | null>(null);
   const [history, setHistory] = useState<ScheduleChange[]>([]);
+  const [outbox, setOutbox] = useState<NotificationOutboxItem[]>([]);
+  const [selectedEmail, setSelectedEmail] = useState<NotificationOutboxItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,12 +48,14 @@ export const ScheduleControlPanelPage: React.FC = () => {
     if (!electionId) return;
     setIsLoading(true);
     try {
-      const [electionData, historyData] = await Promise.all([
+      const [electionData, historyData, outboxData] = await Promise.all([
         api.get<Election>(`/elections/${electionId}`),
         api.get<ScheduleChange[]>(`/elections/${electionId}/schedule/history`),
+        api.get<NotificationOutboxItem[]>(`/elections/${electionId}/notifications/outbox`).catch(() => [] as NotificationOutboxItem[]),
       ]);
       setElection(electionData);
       setHistory(historyData);
+      setOutbox(outboxData);
     } catch (err: any) {
       setError(err.message || 'Error al cargar información del cronograma.');
     } finally {
@@ -270,7 +283,141 @@ export const ScheduleControlPanelPage: React.FC = () => {
 
         {/* Bitácora Histórica de Auditoría de Cronograma */}
         <ScheduleAuditTimeline changes={history} timezone={election.timezone} />
+
+        {/* Bandeja de Notificaciones de Cronograma por Correo (S2-09) */}
+        <div className="bg-white border border-stone-300 rounded-xl p-6 shadow-electoral space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-stone-200 pb-3">
+            <div>
+              <h3 className="font-title text-sm font-bold text-civic-navy-900 flex items-center space-x-2">
+                <Mail className="w-4 h-4 text-seal-emerald" />
+                <span>Bandeja de Notificaciones de Cronograma (S2-09)</span>
+              </h3>
+              <p className="text-xs text-stone-500">
+                Correos despachados a votantes habilitados (`ACTIVE`) ante reprogramaciones o ajustes de calendario.
+              </p>
+            </div>
+            <span className="px-2.5 py-1 bg-stone-100 rounded-lg text-xs font-mono font-bold text-stone-700">
+              {outbox.length} notificaciones
+            </span>
+          </div>
+
+          {outbox.length === 0 ? (
+            <div className="p-8 text-center text-xs text-stone-500 font-mono">
+              No se han emitido notificaciones de cambio de cronograma aún.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-stone-100 text-stone-600 font-mono text-[11px] border-b border-stone-200">
+                    <th className="py-2.5 px-3">Destinatario</th>
+                    <th className="py-2.5 px-3">Asunto</th>
+                    <th className="py-2.5 px-3">Estado de Envío</th>
+                    <th className="py-2.5 px-3">Fecha</th>
+                    <th className="py-2.5 px-3 text-right">Contenido</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-200">
+                  {outbox.map((item) => (
+                    <tr key={item.id} className="hover:bg-stone-50">
+                      <td className="py-2.5 px-3">
+                        <span className="font-semibold text-stone-800 block">{item.recipient_name}</span>
+                        <span className="text-[11px] text-stone-500 font-mono">{item.recipient_email}</span>
+                      </td>
+                      <td className="py-2.5 px-3 text-stone-700 font-medium max-w-[260px] truncate" title={item.subject}>
+                        {item.subject}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        {item.delivery_status === 'SENT_SMTP' ? (
+                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Enviado SMTP</span>
+                          </span>
+                        ) : item.delivery_status === 'STORED_DEMO_OUTBOX' ? (
+                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                            <Send className="w-3 h-3" />
+                            <span>Outbox Demo</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800">
+                            <AlertCircle className="w-3 h-3" />
+                            <span>Fallo</span>
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-stone-500 font-mono text-[11px]">
+                        {new Date(item.created_at).toLocaleString()}
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <button
+                          onClick={() => setSelectedEmail(item)}
+                          className="px-2 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-xs font-bold inline-flex items-center space-x-1 transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Ver</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Modal de Lectura de Correo Notificado */}
+      {selectedEmail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-civic-navy-950/70 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl border border-stone-300 shadow-2xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-title text-base font-bold text-civic-navy-900 flex items-center space-x-2">
+                <Mail className="w-5 h-5 text-seal-emerald" />
+                <span>Notificación de Cambio de Cronograma</span>
+              </h3>
+              <button
+                onClick={() => setSelectedEmail(null)}
+                className="text-stone-400 hover:text-stone-600 font-bold text-xl"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="bg-stone-50 p-3 rounded-lg border border-stone-200 space-y-1">
+                <div>
+                  <span className="font-bold text-stone-600">Para:</span>{' '}
+                  <span className="font-mono text-stone-900">{selectedEmail.recipient_name} ({selectedEmail.recipient_email})</span>
+                </div>
+                <div>
+                  <span className="font-bold text-stone-600">Asunto:</span>{' '}
+                  <span className="font-semibold text-stone-900">{selectedEmail.subject}</span>
+                </div>
+                <div>
+                  <span className="font-bold text-stone-600">Fecha:</span>{' '}
+                  <span className="font-mono text-stone-600">{new Date(selectedEmail.created_at).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div>
+                <span className="font-bold text-stone-700 block mb-1">Cuerpo del Mensaje:</span>
+                <div className="p-4 bg-stone-100 rounded-lg font-mono text-[11px] text-stone-800 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
+                  {selectedEmail.body_text}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setSelectedEmail(null)}
+                className="px-4 py-1.5 bg-civic-navy-900 text-white rounded-lg text-xs font-bold hover:bg-civic-navy-800"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Edición de Cronograma */}
       {isEditModalOpen && (

@@ -19,6 +19,7 @@ import {
   Percent,
   Check,
   Ban,
+  FileDown,
 } from 'lucide-react';
 import {
   Election,
@@ -48,7 +49,43 @@ export const ElectionResultsTallyPage: React.FC = () => {
   // Selector de Grupo y Cargo
   const [selectedGroupIdx, setSelectedGroupIdx] = useState(0);
 
-  // Modal de Cierre de Votación (exclusivo ADMIN_GENERAL)
+  const [downloadingExport, setDownloadingExport] = useState<string | null>(null);
+
+  const handleDownload = async (type: 'results' | 'participation' | 'audit', format: 'pdf' | 'xlsx') => {
+    if (!electionId) return;
+    setDownloadingExport(`${type}-${format}`);
+    try {
+      const token = localStorage.getItem('votoseguro_token');
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+      const url = `${apiBase}/elections/${electionId}/exports/${type}?format=${format}`;
+
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ detail: 'Error en la descarga del reporte' }));
+        alert(errorData.detail || 'No se pudo descargar el reporte solicitado');
+        return;
+      }
+
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `VotoSeguro_${type}_${electionId.slice(0, 8)}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(a);
+    } catch (err) {
+      alert('Error de conexión al descargar reporte oficial');
+    } finally {
+      setDownloadingExport(null);
+    }
+  };
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closeReason, setCloseReason] = useState('Fin de jornada electoral reglamentaria.');
   const [closing, setClosing] = useState(false);
@@ -155,14 +192,58 @@ export const ElectionResultsTallyPage: React.FC = () => {
               <span>Actualizar Cómputo</span>
             </button>
 
-            {results && (
-              <button
-                onClick={() => window.print()}
-                className="px-3 py-2 bg-stone-800 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm hover:bg-stone-700 transition-colors"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Imprimir Acta Oficial</span>
-              </button>
+            {results ? (
+              <>
+                <button
+                  onClick={() => handleDownload('results', 'pdf')}
+                  disabled={downloadingExport === 'results-pdf'}
+                  className="px-3 py-2 bg-seal-emerald hover:bg-seal-emerald/90 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-colors disabled:opacity-50"
+                  title="Descargar Acta Oficial en PDF con firmas y k-anonimato"
+                >
+                  <FileDown className="w-3.5 h-3.5" />
+                  <span>{downloadingExport === 'results-pdf' ? 'Generando...' : 'Acta Oficial PDF'}</span>
+                </button>
+
+                <button
+                  onClick={() => handleDownload('results', 'xlsx')}
+                  disabled={downloadingExport === 'results-xlsx'}
+                  className="px-3 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-colors disabled:opacity-50"
+                  title="Descargar Escrutinio Detallado en Excel XLSX"
+                >
+                  <FileDown className="w-3.5 h-3.5" />
+                  <span>{downloadingExport === 'results-xlsx' ? 'Generando...' : 'Escrutinio Excel'}</span>
+                </button>
+
+                <button
+                  onClick={() => window.print()}
+                  className="px-3 py-2 bg-stone-800 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm hover:bg-stone-700 transition-colors"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir Acta</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleDownload('participation', 'pdf')}
+                  disabled={downloadingExport === 'participation-pdf'}
+                  className="px-3 py-2 bg-civic-navy-900 hover:bg-civic-navy-800 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-colors disabled:opacity-50"
+                  title="Descargar Reporte Oficial de Participación Ciudadana"
+                >
+                  <FileDown className="w-3.5 h-3.5" />
+                  <span>{downloadingExport === 'participation-pdf' ? 'Generando...' : 'Participación PDF'}</span>
+                </button>
+
+                <button
+                  onClick={() => handleDownload('participation', 'xlsx')}
+                  disabled={downloadingExport === 'participation-xlsx'}
+                  className="px-3 py-2 bg-stone-700 hover:bg-stone-800 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-colors disabled:opacity-50"
+                  title="Descargar Padrón y Participación en Excel"
+                >
+                  <FileDown className="w-3.5 h-3.5" />
+                  <span>{downloadingExport === 'participation-xlsx' ? 'Generando...' : 'Participación Excel'}</span>
+                </button>
+              </>
             )}
           </div>
         </div>

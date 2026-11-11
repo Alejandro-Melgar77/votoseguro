@@ -10,6 +10,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -96,6 +97,9 @@ class VoterParticipation(Base):
         default=lambda: datetime.now(timezone.utc),
     )
 
+    node = relationship("UnitNode")
+    group = relationship("VoterGroup")
+
 
 class Vote(Base):
     """
@@ -112,6 +116,7 @@ class Vote(Base):
         ),
         Index("ix_vote_election_constituency", "election_id", "constituency_id"),
         Index("ix_vote_segment_path", "segment_path", postgresql_using="btree"),
+        Index("ix_vote_election_chain", "election_id", "chain_index"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -122,6 +127,9 @@ class Vote(Base):
         ForeignKey("election.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
+    )
+    chain_index: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1
     )
     constituency_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -143,7 +151,7 @@ class Vote(Base):
     nullifier: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     receipt_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     prev_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    vote_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    vote_hash: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     # Relaciones

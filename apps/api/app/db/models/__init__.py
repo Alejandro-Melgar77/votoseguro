@@ -49,6 +49,9 @@ from app.db.models.audit import (
     AuditLog,
     AiCallLog,
 )
+from app.db.models.notification import (
+    NotificationOutbox,
+)
 
 __all__ = [
     "Base",
@@ -85,4 +88,5 @@ __all__ = [
     "VoteChoiceType",
     "AuditLog",
     "AiCallLog",
+    "NotificationOutbox",
 ]

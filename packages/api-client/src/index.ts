@@ -83,6 +83,9 @@ export interface Election {
   k_anonymity: number;
   config_hash: string | null;
   roll_hash: string | null;
+  merkle_root?: string | null;
+  registration_mode?: string;
+  votes_chain_head?: string | null;
   published_at: string | null;
   registration_frozen_at: string | null;
   voting_closed_at: string | null;
@@ -654,14 +657,26 @@ export interface CastReceiptResponse {
   verification_code: string;
 }
 
+export interface ReceiptChainProofItem {
+  chain_index: number;
+  vote_hash: string;
+  prev_hash: string;
+}
+
 export interface ReceiptVerificationResponse {
-  verified: boolean;
+  found?: boolean;
+  verified?: boolean;
   receipt_hash: string;
   election_id: string;
   election_name: string;
+  organization_name?: string | null;
   cast_at_minute: string;
-  total_votes_in_ballot: number;
-  message: string;
+  contests_recorded?: number;
+  total_votes_in_ballot?: number;
+  status: string;
+  message?: string;
+  chain_proof?: ReceiptChainProofItem[];
+  chain_intact?: boolean;
 }
 
 export interface CredentialDispatchItem {
@@ -803,6 +818,190 @@ export interface SeedDemoResponse {
     org1: string;
     org2: string;
   };
+}
+
+// =============================================================================
+// SPRINT 2: Integridad Criptográfica, Merkle Tree, WebSockets y Notificaciones
+// =============================================================================
+
+export interface VoteChainIntegrityResponse {
+  valid: boolean;
+  election_id: string;
+  genesis_hash: string;
+  head_hash: string | null;
+  total_blocks: number;
+  verified_blocks: number;
+  broken_at_index: number | null;
+  broken_vote_id: string | null;
+  error_detail: string | null;
+  checked_at: string;
+}
+
+export interface AuditChainIntegrityResponse {
+  valid: boolean;
+  organization_id: string | null;
+  election_id: string | null;
+  genesis_hash: string;
+  head_hash: string | null;
+  total_entries: number;
+  verified_entries: number;
+  broken_at_index: number | null;
+  broken_entry_id: number | null;
+  error_detail: string | null;
+  checked_at: string;
+}
+
+export interface MerkleProofStep {
+  position: 'left' | 'right';
+  sibling_hash: string;
+}
+
+export interface MerkleInclusionProofResponse {
+  election_id: string;
+  document_id: string;
+  leaf_hash: string;
+  leaf_index: number;
+  total_active_voters: number;
+  merkle_root: string;
+  proof: MerkleProofStep[];
+}
+
+export interface MerkleVerifyRequest {
+  leaf_hash: string;
+  merkle_root: string;
+  proof: MerkleProofStep[];
+}
+
+export interface MerkleVerifyResponse {
+  valid: boolean;
+  computed_root: string;
+  expected_root: string;
+}
+
+export interface RegistrationMetricsDTO {
+  imported: number;
+  invited: number;
+  active: number;
+  blocked: number;
+  pending_approval: number;
+  total: number;
+  activation_rate_pct: number;
+}
+
+export interface ParticipationMetricsDTO {
+  total_eligible_active: number;
+  total_voted: number;
+  abstention_count: number;
+  participation_rate_pct: number;
+}
+
+export interface SegmentBreakdownItemDTO {
+  group_id: string;
+  group_name: string;
+  node_id: string;
+  node_name: string;
+  node_path: string;
+  active_voters: number;
+  votes_cast: number;
+  participation_pct: number;
+}
+
+export interface HourlyVotesBucketDTO {
+  hour_bucket_utc: string;
+  hour_label_local: string;
+  ballots_cast: number;
+  cumulative_ballots: number;
+}
+
+export interface LiveDashboardSnapshot {
+  election_id: string;
+  election_name: string;
+  status: string;
+  server_now_utc: string;
+  config_hash: string | null;
+  roll_hash: string | null;
+  merkle_root: string | null;
+  registration_metrics: RegistrationMetricsDTO;
+  participation_metrics: ParticipationMetricsDTO;
+  segment_breakdown: SegmentBreakdownItemDTO[];
+  hourly_votes_series: HourlyVotesBucketDTO[];
+}
+
+export interface SelfRegistrationNodeDTO {
+  id: string;
+  name: string;
+  code: string;
+  path: string;
+  depth: number;
+}
+
+export interface SelfRegistrationGroupDTO {
+  id: string;
+  name: string;
+  code: string;
+  nodes: SelfRegistrationNodeDTO[];
+}
+
+export interface SelfRegistrationInfoResponse {
+  election_id: string;
+  election_name: string;
+  registration_mode: string;
+  status: string;
+  is_open: boolean;
+  groups: SelfRegistrationGroupDTO[];
+  filter_definitions: Record<string, any>[];
+}
+
+export interface SelfRegistrationRequest {
+  document_id: string;
+  full_name: string;
+  email?: string | null;
+  phone?: string | null;
+  group_id: string;
+  node_id: string;
+  attributes?: Record<string, any>;
+}
+
+export interface SelfRegistrationResponse {
+  success: boolean;
+  message: string;
+  voter_id: string;
+  document_id: string;
+  full_name: string;
+  status: string;
+}
+
+export interface NotificationOutboxItem {
+  id: string;
+  organization_id: string;
+  election_id: string;
+  schedule_change_id: string | null;
+  recipient_email: string;
+  recipient_name: string;
+  subject: string;
+  body_text: string;
+  delivery_status: 'SENT_SMTP' | 'STORED_DEMO_OUTBOX' | 'FAILED';
+  created_at: string;
+}
+
+export interface PaillierBenchmarkResponse {
+  key_size_bits: number;
+  keygen_duration_ms: number;
+  simulated_ballots_count: number;
+  encryption_duration_ms: number;
+  homomorphic_addition_duration_ms: number;
+  final_decryption_duration_ms: number;
+  total_benchmark_duration_ms: number;
+  sample_ciphertext_preview: string | null;
+  mathematical_equivalence_verified: boolean;
+  decrypted_tallies: Record<string, Record<string, number[]>>;
+  verification_cells: Array<{
+    constituency_id: string;
+    segment_path: string;
+    expected_plaintext_tally: number[];
+    decrypted_homomorphic_tally: number[];
+    is_exact_match: boolean;
+  }>;
 }
 
 

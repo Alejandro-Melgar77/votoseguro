@@ -24,6 +24,7 @@ class ElectionCreateRequest(BaseModel):
     voting_opens_at: datetime
     voting_closes_at: datetime
     k_anonymity: int = Field(default=5, ge=0)
+    registration_mode: str = Field(default="LINK_ONLY", description="'LINK_ONLY' o 'OPEN_WITH_APPROVAL'")
 
 
 class ElectionUpdateRequest(BaseModel):
@@ -31,6 +32,7 @@ class ElectionUpdateRequest(BaseModel):
     description: str | None = None
     timezone: str | None = Field(None, min_length=2, max_length=64)
     k_anonymity: int | None = Field(None, ge=0)
+    registration_mode: str | None = None
 
 
 class ScheduleUpdateRequest(BaseModel):
@@ -52,9 +54,12 @@ class ElectionResponse(BaseModel):
     voting_opens_at: datetime
     voting_closes_at: datetime
     status: ElectionStatus
+    registration_mode: str = "LINK_ONLY"
     k_anonymity: int
     config_hash: str | None
     roll_hash: str | None
+    merkle_root: str | None = None
+    votes_chain_head: str | None = None
     published_at: datetime | None
     registration_frozen_at: datetime | None
     voting_closed_at: datetime | None

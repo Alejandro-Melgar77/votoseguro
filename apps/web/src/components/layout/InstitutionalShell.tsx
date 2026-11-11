@@ -12,6 +12,8 @@ import {
   Award,
   UserCheck,
   BarChart3,
+  Activity,
+  FileCheck2,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-store';
 import { TopSecurityBanner } from './TopSecurityBanner';
@@ -161,6 +163,18 @@ export const InstitutionalShell: React.FC<InstitutionalShellProps> = ({
                     </Link>
 
                     <Link
+                      to={`/elections/${activeElectionId}/live`}
+                      className={`flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                        location.pathname.includes('/live')
+                          ? 'bg-civic-navy-800 text-white font-semibold'
+                          : 'hover:bg-civic-navy-800/60 text-stone-300'
+                      }`}
+                    >
+                      <Activity className="w-4 h-4 text-emerald-400" />
+                      <span>Monitoreo en Vivo (S2)</span>
+                    </Link>
+
+                    <Link
                       to={`/elections/${activeElectionId}/results`}
                       className={`flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
                         location.pathname.includes('/results')
@@ -171,12 +185,31 @@ export const InstitutionalShell: React.FC<InstitutionalShellProps> = ({
                       <BarChart3 className="w-4 h-4 text-seal-amber" />
                       <span>Centro de Cómputo</span>
                     </Link>
+
+                    <Link
+                      to={`/elections/${activeElectionId}/integrity`}
+                      className={`flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                        location.pathname.includes('/integrity')
+                          ? 'bg-civic-navy-800 text-white font-semibold'
+                          : 'hover:bg-civic-navy-800/60 text-stone-300'
+                      }`}
+                    >
+                      <ShieldCheck className="w-4 h-4 text-seal-emerald" />
+                      <span>Integridad Criptográfica</span>
+                    </Link>
                   </>
                 )}
               </>
             )}
 
-            <div className="pt-4 border-t border-civic-navy-800 mt-4">
+            <div className="pt-4 border-t border-civic-navy-800 mt-4 space-y-1">
+              <Link
+                to="/verify-receipt"
+                className="flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium text-stone-300 hover:text-white hover:bg-civic-navy-800/60 transition-colors"
+              >
+                <FileCheck2 className="w-4 h-4 text-seal-emerald" />
+                <span>Verificar Comprobante</span>
+              </Link>
               <Link
                 to="/request-election"
                 className="flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium text-stone-400 hover:text-white hover:bg-civic-navy-800/40 transition-colors"

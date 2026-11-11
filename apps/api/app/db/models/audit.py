@@ -23,6 +23,7 @@ class AuditLog(Base):
     __tablename__ = "audit_log"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chain_index: Mapped[int] = mapped_column(Integer, nullable=False, default=1, index=True)
     organization_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True
     )
@@ -56,6 +57,9 @@ class AiCallLog(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True, index=True
+    )
+    election_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True
     )
     function_name: Mapped[str] = mapped_column(String(80), nullable=False)

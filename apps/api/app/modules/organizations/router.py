@@ -11,6 +11,7 @@ from app.core.dependencies import (
     get_time_provider,
     require_platform_admin,
 )
+from app.core.rate_limit import limiter
 from app.core.time import TimeProvider
 from app.db.models.organization import ElectionRequestStatus
 from app.db.models.user import User
@@ -149,6 +150,7 @@ async def reject_election_request(
     response_model=ElectionRequestResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit("5/minute")
 async def submit_public_election_request(
     request: Request,
     payload: ElectionRequestCreate,
