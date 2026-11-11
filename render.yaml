@@ -21,9 +21,9 @@ services:
       - key: NULLIFIER_SECRET
         generateValue: true
       - key: DATABASE_URL
-        value: "postgresql+asyncpg://postgres:proyectofinalvotoseguro@db.wmbyygrelcrcazxqedwr.supabase.co:5432/postgres"
+        value: "postgresql+asyncpg://postgres.wmbyygrelcrcazxqedwr:proyectofinalvotoseguro@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
       - key: SYNC_DATABASE_URL
-        value: "postgresql+psycopg://postgres:proyectofinalvotoseguro@db.wmbyygrelcrcazxqedwr.supabase.co:5432/postgres"
+        value: "postgresql+psycopg://postgres.wmbyygrelcrcazxqedwr:proyectofinalvotoseguro@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
       - key: CORS_ORIGINS
         value: "https://votoseguro.pages.dev,http://localhost:5173"
       - key: PLATFORM_ADMIN_EMAIL
