@@ -165,6 +165,7 @@ class Contest(Base):
         index=True,
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     scope_level_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("hierarchy_level.id", ondelete="RESTRICT"),

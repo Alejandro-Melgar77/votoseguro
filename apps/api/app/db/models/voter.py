@@ -96,6 +96,12 @@ class ImportBatch(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organization.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     election_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("election.id", ondelete="CASCADE"),
@@ -136,15 +142,26 @@ class ImportIssue(Base):
     issue_type: Mapped[str] = mapped_column(String(40), nullable=False)  # VALIDATION_ERROR, POSSIBLE_DUPLICATE
     document_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     raw_full_name: Mapped[str | None] = mapped_column(String(250), nullable=True)
+    candidate_voter_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("voter.id", ondelete="SET NULL"), nullable=True
+    )
     matched_voter_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("voter.id", ondelete="SET NULL"), nullable=True
     )
     similarity_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    edit_distance: Mapped[int | None] = mapped_column(Integer, nullable=True)
     resolution: Mapped[str] = mapped_column(String(40), nullable=False, default="PENDING")
+    resolved_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     # Relaciones
     batch = relationship("ImportBatch", back_populates="issues")
+    candidate_voter = relationship("Voter", foreign_keys=[candidate_voter_id])
+    matched_voter = relationship("Voter", foreign_keys=[matched_voter_id])
+    resolver = relationship("User", foreign_keys=[resolved_by])
 
 
 class RegistrationLink(Base):

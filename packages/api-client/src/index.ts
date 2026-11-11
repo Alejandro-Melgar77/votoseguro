@@ -198,3 +198,317 @@ export interface RejectElectionRequest {
   rejection_reason: string;
 }
 
+// =============================================================================
+// Estructura Electoral, Niveles y Nodos (S1-03)
+// =============================================================================
+
+export interface VoterGroup {
+  id: string;
+  organization_id: string;
+  election_id: string;
+  name: string;
+  code: string;
+  description: string | null;
+  voting_opens_at: string | null;
+  voting_closes_at: string | null;
+  created_at: string;
+  levels_count: number;
+  nodes_count: number;
+  contests_count: number;
+}
+
+export interface VoterGroupCreate {
+  name: string;
+  code: string;
+  description?: string | null;
+  voting_opens_at?: string | null;
+  voting_closes_at?: string | null;
+}
+
+export interface VoterGroupUpdate {
+  name?: string;
+  code?: string;
+  description?: string | null;
+}
+
+export interface VoterGroupVotingWindowUpdate {
+  voting_opens_at?: string | null;
+  voting_closes_at?: string | null;
+}
+
+export interface HierarchyLevel {
+  id: string;
+  group_id: string;
+  depth: number;
+  name: string;
+}
+
+export interface HierarchyLevelCreate {
+  name: string;
+}
+
+export interface UnitNode {
+  id: string;
+  group_id: string;
+  level_id: string;
+  parent_id: string | null;
+  name: string;
+  code: string;
+  path: string;
+  depth: number;
+  children?: UnitNode[];
+}
+
+export interface UnitNodeCreate {
+  level_id: string;
+  parent_id?: string | null;
+  name: string;
+  code: string;
+}
+
+export interface UnitNodeUpdate {
+  name?: string;
+  code?: string;
+}
+
+export interface NodeImportRowError {
+  row: number;
+  code: string;
+  message: string;
+}
+
+export interface NodeImportResult {
+  total_rows: number;
+  created_nodes: number;
+  errors: NodeImportRowError[];
+}
+
+// =============================================================================
+// Filtros Dinámicos, Cargos y Circunscripciones (S1-04)
+// =============================================================================
+
+export interface FilterDefinition {
+  id: string;
+  group_id: string;
+  key: string;
+  label: string;
+  allowed_values: string[];
+  is_required: boolean;
+}
+
+export interface FilterDefinitionCreate {
+  key: string;
+  label: string;
+  allowed_values: string[];
+  is_required: boolean;
+}
+
+export type BreakdownKind = 'LEVEL' | 'FILTER';
+
+export interface ContestBreakdown {
+  id: string;
+  contest_id: string;
+  kind: BreakdownKind;
+  level_id: string | null;
+  filter_id: string | null;
+  label: string;
+}
+
+export interface ContestBreakdownConfig {
+  kind: BreakdownKind;
+  level_id?: string | null;
+  filter_id?: string | null;
+  label: string;
+}
+
+export interface Contest {
+  id: string;
+  group_id: string;
+  name: string;
+  description: string | null;
+  scope_level_id: string;
+  scope_level_name?: string | null;
+  scope_level_depth?: number | null;
+  allow_blank: boolean;
+  allow_null: boolean;
+  display_order: number;
+  constituencies_count: number;
+  breakdowns: ContestBreakdown[];
+}
+
+export interface ContestCreate {
+  name: string;
+  description?: string | null;
+  scope_level_id: string;
+  allow_blank?: boolean;
+  allow_null?: boolean;
+  display_order?: number;
+  breakdowns?: ContestBreakdownConfig[];
+}
+
+export interface ContestUpdate {
+  name?: string;
+  description?: string | null;
+  scope_level_id?: string | null;
+  allow_blank?: boolean;
+  allow_null?: boolean;
+  display_order?: number;
+}
+
+export interface Constituency {
+  id: string;
+  contest_id: string;
+  node_id: string;
+  node_name: string;
+  node_code: string;
+  node_path: string;
+  candidates: Candidate[];
+}
+
+// =============================================================================
+// Candidatos y Papeleta (S1-05)
+// =============================================================================
+
+export interface Candidate {
+  id: string;
+  constituency_id: string;
+  name: string;
+  party_or_front: string | null;
+  photo_url: string | null;
+  ballot_order: number;
+}
+
+export interface CandidateCreate {
+  name: string;
+  party_or_front?: string | null;
+  photo_url?: string | null;
+  ballot_order?: number | null;
+}
+
+export interface CandidateUpdate {
+  name?: string;
+  party_or_front?: string | null;
+  photo_url?: string | null;
+  ballot_order?: number | null;
+}
+
+export interface CandidateReorderRequest {
+  ordered_candidate_ids: string[];
+}
+
+// =============================================================================
+// Padrón Electoral, Carga Masiva y Duplicados (S1-07, IA-L2a)
+// =============================================================================
+
+export type VoterStatus = 'IMPORTED' | 'INVITED' | 'ACTIVE' | 'BLOCKED';
+
+export interface Voter {
+  id: string;
+  organization_id: string;
+  election_id: string;
+  group_id: string;
+  group_name?: string | null;
+  node_id: string;
+  node_name?: string | null;
+  node_path?: string | null;
+  document_id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  attributes: Record<string, unknown>;
+  status: VoterStatus;
+  blocked_reason: string | null;
+  invited_at: string | null;
+  activated_at: string | null;
+  created_at: string;
+}
+
+export interface VoterCreate {
+  group_id: string;
+  node_id: string;
+  document_id: string;
+  full_name: string;
+  email?: string | null;
+  phone?: string | null;
+  attributes?: Record<string, unknown>;
+}
+
+export interface VoterUpdate {
+  email?: string | null;
+  phone?: string | null;
+  attributes?: Record<string, unknown>;
+  status?: VoterStatus;
+  blocked_reason?: string | null;
+}
+
+export interface GroupSummaryItem {
+  group_id: string;
+  group_name: string;
+  group_code: string;
+  total_voters: number;
+  imported_count: number;
+  invited_count: number;
+  active_count: number;
+  blocked_count: number;
+}
+
+export interface NodeSummaryItem {
+  node_id: string;
+  node_name: string;
+  node_code: string;
+  node_path: string;
+  depth: number;
+  total_voters: number;
+  active_voters: number;
+}
+
+export interface RegistrationSummaryResponse {
+  total_voters: number;
+  imported_count: number;
+  invited_count: number;
+  active_count: number;
+  blocked_count: number;
+  activation_percentage: number;
+  pending_duplicates_count: number;
+  by_group: GroupSummaryItem[];
+  by_node: NodeSummaryItem[];
+}
+
+export interface ImportBatch {
+  id: string;
+  election_id: string;
+  uploaded_by: string;
+  filename: string;
+  total_rows: number;
+  valid_rows: number;
+  error_rows: number;
+  duplicate_warnings: number;
+  created_at: string;
+}
+
+export interface ImportIssue {
+  id: string;
+  batch_id: string;
+  row_number: number;
+  issue_type: 'VALIDATION_ERROR' | 'POSSIBLE_DUPLICATE';
+  document_id: string | null;
+  raw_full_name: string | null;
+  candidate_voter_id: string | null;
+  candidate_voter_name?: string | null;
+  matched_voter_id: string | null;
+  matched_voter_name?: string | null;
+  matched_voter_document?: string | null;
+  similarity_score: number | null;
+  edit_distance: number | null;
+  resolution: 'PENDING' | 'CONFIRMED_DISTINCT' | 'MERGED_OR_REJECTED';
+  resolved_by?: string | null;
+  resolved_at?: string | null;
+  details: Record<string, unknown>;
+}
+
+export interface DuplicateResolveRequest {
+  action: 'CONFIRM_DISTINCT' | 'BLOCK_NEW' | 'REMOVE_NEW';
+  reason: string;
+}
+
+

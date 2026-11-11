@@ -9,6 +9,9 @@ import {
   Clock,
   ArrowRight,
   AlertCircle,
+  Layers,
+  Award,
+  UserCheck,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
@@ -156,22 +159,49 @@ export const ElectionWorkspacePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Botones de acción */}
-              <div className="pt-4 mt-4 border-t border-stone-200 flex items-center justify-between">
+                {/* Accesos Rápidos Modulares */}
+                <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-stone-100 text-2xs font-semibold">
+                  <Link
+                    to={`/elections/${election.id}/structure`}
+                    className="p-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 hover:border-civic-navy-900/30 text-stone-700 flex items-center space-x-1 transition-colors"
+                  >
+                    <Layers className="w-3.5 h-3.5 text-seal-amber shrink-0" />
+                    <span className="truncate">Estructura</span>
+                  </Link>
+
+                  <Link
+                    to={`/elections/${election.id}/candidates`}
+                    className="p-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 hover:border-civic-navy-900/30 text-stone-700 flex items-center space-x-1 transition-colors"
+                  >
+                    <Award className="w-3.5 h-3.5 text-seal-emerald shrink-0" />
+                    <span className="truncate">Papeleta</span>
+                  </Link>
+
+                  <Link
+                    to={`/elections/${election.id}/voters`}
+                    className="p-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 hover:border-civic-navy-900/30 text-stone-700 flex items-center space-x-1 transition-colors"
+                  >
+                    <UserCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span className="truncate">Padrón</span>
+                  </Link>
+                </div>
+
+              {/* Botones de acción principales */}
+              <div className="pt-3 mt-3 border-t border-stone-200 flex items-center justify-between">
                 <Link
                   to={`/elections/${election.id}/delegates`}
                   className="text-xs font-semibold text-stone-600 hover:text-civic-navy-900 flex items-center space-x-1"
                 >
-                  <Users className="w-3.5 h-3.5" />
+                  <Users className="w-3.5 h-3.5 text-stone-500" />
                   <span>Delegados</span>
                 </Link>
 
                 <Link
                   to={`/elections/${election.id}/schedule`}
-                  className="px-3.5 py-1.5 bg-civic-navy-900 hover:bg-civic-navy-800 text-white rounded text-xs font-semibold transition-colors flex items-center space-x-1.5 shadow-sm"
+                  className="px-3.5 py-1.5 bg-civic-navy-900 hover:bg-civic-navy-800 text-white rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 shadow-xs"
                 >
                   <CalendarDays className="w-3.5 h-3.5 text-seal-amber" />
-                  <span>Control de Cronograma</span>
+                  <span>Cronograma</span>
                   <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
                 </Link>
               </div>

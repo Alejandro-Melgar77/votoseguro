@@ -14,6 +14,7 @@ from app.core.dependencies import (
 )
 from app.core.time import TimeProvider
 from app.db.session import get_db_session
+from app.modules.elections.publication_service import PublicationService
 from app.modules.elections.schemas import (
     ElectionCreateRequest,
     ElectionResponse,
@@ -148,3 +149,26 @@ async def get_schedule_history(
     return await ElectionService.list_schedule_history(
         db=db, election_id=election_id, organization_id=tenant.organization_id
     )
+
+
+@router.post("/{election_id}/publish", response_model=ElectionResponse)
+async def publish_election(
+    request: Request,
+    election_id: uuid.UUID,
+    tenant: Annotated[TenantContext, Depends(require_admin_general)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    time_provider: Annotated[TimeProvider, Depends(get_time_provider)],
+):
+    """
+    Publica la elección previa validación de las 6 reglas de consistencia electoral.
+    Emite el config_hash canónico SHA-256, congela la estructura y transiciona a SCHEDULED.
+    """
+    client_ip = request.client.host if request.client else None
+    return await PublicationService.publish_election(
+        db=db,
+        election_id=election_id,
+        actor=tenant.user,
+        time_provider=time_provider,
+        client_ip=client_ip,
+    )
+

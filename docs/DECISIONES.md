@@ -38,3 +38,33 @@
 - **Estado:** Aceptado
 - **Contexto:** Las transiciones de fase deben ocurrir exactamente al cumplirse los plazos sin intervención manual. Si la API corre en múltiples réplicas (o concurrencia con worker), múltiples procesos no deben colisionar.
 - **Decisión:** Se utiliza `APScheduler` ejecutando `run_scheduler_tick` cada 10 segundos, protegido con `SELECT pg_try_advisory_xact_lock(849201)`. Las consultas emplean `SELECT ... FOR UPDATE SKIP LOCKED`.
+
+## ADR 006: Materialized Paths para Jerarquías Electorales y Alcance de Delegados
+- **Fecha:** 2026-11-11
+- **Estado:** Aceptado
+- **Contexto:** Las organizaciones (ej. universidades, cooperativas, colegios profesionales) tienen estructuras de niveles arbitrarios (Universidad -> Facultad -> Carrera -> Mención) que cambian por institución.
+- **Decisión:** Se implementa un modelo de jerarquía dinámica en `structure.py`:
+  1. `VoterGroup` define los estamentos electorales (ej. Docentes, Estudiantes).
+  2. `HierarchyLevel` define los peldaños escalonados ordenados por `depth` incremental (1, 2, 3...).
+  3. `UnitNode` implementa una ruta materializada canónica (`path` indexada) con formato `/{PARENT_PATH}{CODE}/`.
+  4. Permite validación de alcance de circunscripciones y delegaciones `ADMIN_SEGMENT` con consultas directas `LIKE :path%`, eliminando la sobrecarga de consultas recursivas (CTE) en tiempo real.
+
+## ADR 007: Congelamiento Estructural y Hash Determinista RFC 8785 (config_hash)
+- **Fecha:** 2026-11-11
+- **Estado:** Aceptado
+- **Contexto:** Tras la convocatoria oficial y registro de candidatos, alterar los cargos, circunscripciones o candidatos constituiría manipulación electoral.
+- **Decisión:** 
+  1. Al invocar `POST /elections/{id}/publish`, se valida una suite de 6 reglas de consistencia de integridad.
+  2. La estructura completa (elección, grupos, niveles, nodos, cargos, circunscripciones y candidatos) se normaliza y serializa en formato canónico determinista **RFC 8785** (orden léxico de claves, normalización de cadenas Unicode y números).
+  3. Se genera el `config_hash` mediante `SHA-256(canonical_json)`.
+  4. La guardia `require_election_draft` bloquea cualquier mutación posterior en grupos, niveles, nodos, cargos o candidatos devolviendo `409 Conflict`.
+
+## ADR 008: Detección Híbrida de Duplicados en Padrón (IA-L2a) con Arbitraje Soberano
+- **Fecha:** 2026-11-11
+- **Estado:** Aceptado
+- **Contexto:** Durante la importación de padrones masivos (ej. decenas de miles de estudiantes o socios) ocurren errores tipográficos en nombres o intentos de doble empadronamiento con documentos alterados.
+- **Decisión:**
+  1. Se implementa un detector en `app/modules/voters/duplicate_detector.py` que combina similitud trigram (`similarity >= 0.40`) y distancia Levenshtein (`levenshtein <= 3`).
+  2. En PostgreSQL se aprovechan las extensiones nativas `pg_trgm` y `fuzzystrmatch`.
+  3. Se implementa un fallback puro en memoria para SQLite (utilizado en la suite de pruebas unitarias/CI).
+  4. Principio de Soberanía Cívica: Ningún votante es descartado automáticamente por el algoritmo. Se genera una alerta de advertencia en `import_issue` y se pone a disposición del tribunal en la bandeja de dictamen humano (`CONFIRM_DISTINCT`, `BLOCK_NEW`, `REMOVE_NEW`).

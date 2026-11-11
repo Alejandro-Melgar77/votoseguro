@@ -16,8 +16,11 @@ from app.db.session import async_session_factory
 from app.modules.admins.router import router as admins_router
 from app.modules.audit.router import router as audit_router
 from app.modules.auth.router import router as auth_router
+from app.modules.candidates.router import router as candidates_router
 from app.modules.elections.router import router as elections_router
 from app.modules.organizations.router import router as organizations_router
+from app.modules.structure.router import router as structure_router
+from app.modules.voters.router import router as voters_router
 from app.modules.scheduler.transition_service import run_scheduler_tick
 
 logging.basicConfig(
@@ -111,6 +114,9 @@ api_v1_prefix = "/api/v1"
 app.include_router(auth_router, prefix=api_v1_prefix)
 app.include_router(organizations_router, prefix=api_v1_prefix)
 app.include_router(elections_router, prefix=api_v1_prefix)
+app.include_router(structure_router, prefix=api_v1_prefix)
+app.include_router(candidates_router, prefix=api_v1_prefix)
+app.include_router(voters_router, prefix=api_v1_prefix)
 app.include_router(admins_router, prefix=api_v1_prefix)
 app.include_router(audit_router, prefix=api_v1_prefix)
 

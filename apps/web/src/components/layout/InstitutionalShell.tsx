@@ -8,6 +8,9 @@ import {
   Building2,
   LogOut,
   FileText,
+  Layers,
+  Award,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-store';
 import { TopSecurityBanner } from './TopSecurityBanner';
@@ -96,6 +99,42 @@ export const InstitutionalShell: React.FC<InstitutionalShellProps> = ({
                     <div className="px-3 pt-4 pb-1 text-[10px] font-mono tracking-wider text-stone-400 uppercase">
                       Control Electoral
                     </div>
+                    <Link
+                      to={`/elections/${activeElectionId}/structure`}
+                      className={`flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                        location.pathname.includes('/structure')
+                          ? 'bg-civic-navy-800 text-white font-semibold'
+                          : 'hover:bg-civic-navy-800/60 text-stone-300'
+                      }`}
+                    >
+                      <Layers className="w-4 h-4 text-seal-amber" />
+                      <span>Estructura y Cargos</span>
+                    </Link>
+
+                    <Link
+                      to={`/elections/${activeElectionId}/candidates`}
+                      className={`flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                        location.pathname.includes('/candidates')
+                          ? 'bg-civic-navy-800 text-white font-semibold'
+                          : 'hover:bg-civic-navy-800/60 text-stone-300'
+                      }`}
+                    >
+                      <Award className="w-4 h-4 text-seal-emerald" />
+                      <span>Papeleta y Candidatos</span>
+                    </Link>
+
+                    <Link
+                      to={`/elections/${activeElectionId}/voters`}
+                      className={`flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                        location.pathname.includes('/voters')
+                          ? 'bg-civic-navy-800 text-white font-semibold'
+                          : 'hover:bg-civic-navy-800/60 text-stone-300'
+                      }`}
+                    >
+                      <UserCheck className="w-4 h-4 text-seal-emerald" />
+                      <span>Padrón y Registro</span>
+                    </Link>
+
                     <Link
                       to={`/elections/${activeElectionId}/schedule`}
                       className={`flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${

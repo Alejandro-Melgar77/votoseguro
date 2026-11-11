@@ -7,6 +7,9 @@ import { PlatformAdminConsolePage } from '@/pages/PlatformAdminConsolePage';
 import { ElectionWorkspacePage } from '@/pages/ElectionWorkspacePage';
 import { ScheduleControlPanelPage } from '@/pages/ScheduleControlPanelPage';
 import { DelegateAdminsPage } from '@/pages/DelegateAdminsPage';
+import { StructureArchitectPage } from '@/pages/StructureArchitectPage';
+import { CandidatesBallotStudioPage } from '@/pages/CandidatesBallotStudioPage';
+import { VoterRollRegistrationPanelPage } from '@/pages/VoterRollRegistrationPanelPage';
 
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
@@ -53,6 +56,33 @@ export const App: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={['ADMIN_GENERAL', 'ADMIN_SEGMENT']}>
               <ElectionWorkspacePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/elections/:electionId/structure"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN_GENERAL']}>
+              <StructureArchitectPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/elections/:electionId/candidates"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN_GENERAL']}>
+              <CandidatesBallotStudioPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/elections/:electionId/voters"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN_GENERAL', 'ADMIN_SEGMENT']}>
+              <VoterRollRegistrationPanelPage />
             </ProtectedRoute>
           }
         />

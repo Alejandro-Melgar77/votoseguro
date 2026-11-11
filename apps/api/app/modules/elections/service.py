@@ -215,7 +215,7 @@ class ElectionService:
         time_provider: TimeProvider,
         client_ip: str | None = None,
     ) -> Election:
-        db_now = await time_provider.now(db)
+        db_now = ensure_utc(await time_provider.now(db))
         election = await ElectionService.get_election(db, election_id, organization_id)
 
         # Regla: solo permitido en SCHEDULED
@@ -224,7 +224,7 @@ class ElectionService:
                 f"La acción 'Abrir registro ahora' solo está permitida cuando la elección está programada (SCHEDULED). Estado actual: {election.status.value}"
             )
 
-        if db_now >= election.registration_closes_at:
+        if db_now >= ensure_utc(election.registration_closes_at):
             raise ConflictException(
                 "No se puede abrir el registro porque la fecha de cierre de registro ya ha expirado."
             )
