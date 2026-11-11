@@ -22,6 +22,13 @@ import {
   Building2,
   Calendar,
   Lock,
+  Link2,
+  Key,
+  Copy,
+  Send,
+  ExternalLink,
+  ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import {
   Election,
@@ -32,6 +39,10 @@ import {
   ImportBatch,
   ImportIssue,
   VoterStatus,
+  RegistrationLink,
+  CredentialDispatchItem,
+  CredentialsDispatchResponse,
+  RollHashFreezeResponse,
 } from '@votoseguro/api-client';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
@@ -60,8 +71,33 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
 
-  // Pestañas activas: 'voters' | 'import' | 'duplicates' | 'breakdown'
-  const [activeTab, setActiveTab] = useState<'voters' | 'import' | 'duplicates' | 'breakdown'>('voters');
+  // Pestañas activas: 'voters' | 'import' | 'duplicates' | 'breakdown' | 'links' | 'credentials'
+  const [activeTab, setActiveTab] = useState<
+    'voters' | 'import' | 'duplicates' | 'breakdown' | 'links' | 'credentials'
+  >('voters');
+
+  // Gestión de Enlaces de Registro (S1-08)
+  const [links, setLinks] = useState<RegistrationLink[]>([]);
+  const [showCreateLinkModal, setShowCreateLinkModal] = useState(false);
+  const [createLinkGroupId, setCreateLinkGroupId] = useState('');
+  const [createLinkNodeId, setCreateLinkNodeId] = useState('');
+  const [createLinkLabel, setCreateLinkLabel] = useState('');
+  const [createLinkExpiresAt, setCreateLinkExpiresAt] = useState('');
+  const [createLinkMaxUses, setCreateLinkMaxUses] = useState('');
+  const [createLinkSubmitting, setCreateLinkSubmitting] = useState(false);
+  const [createLinkError, setCreateLinkError] = useState<string | null>(null);
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+  const [sendingInvitations, setSendingInvitations] = useState(false);
+  const [invitationsFeedback, setInvitationsFeedback] = useState<string | null>(null);
+
+  // Despacho de Credenciales Demo (S1-09)
+  const [credentials, setCredentials] = useState<CredentialDispatchItem[]>([]);
+  const [credentialsTotal, setCredentialsTotal] = useState(0);
+  const [credentialsLoading, setCredentialsLoading] = useState(false);
+  const [copiedCredId, setCopiedCredId] = useState<string | null>(null);
+  const [freezingRoll, setFreezingRoll] = useState(false);
+  const [openingVoting, setOpeningVoting] = useState(false);
+  const [rollFreezeFeedback, setRollFreezeFeedback] = useState<string | null>(null);
 
   // Modal Alta Individual
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -167,6 +203,14 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
   useEffect(() => {
     loadVotersList();
   }, [electionId, selectedGroupId, selectedStatus]);
+
+  useEffect(() => {
+    if (activeTab === 'links') {
+      loadLinks();
+    } else if (activeTab === 'credentials') {
+      loadCredentials();
+    }
+  }, [activeTab]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -330,6 +374,140 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
       alert(err.message || 'Error al cargar incidentes del lote.');
     } finally {
       setLoadingBatchIssues(false);
+    }
+  };
+
+  const loadLinks = async () => {
+    if (!electionId) return;
+    try {
+      const data = await api.get<RegistrationLink[]>(`/elections/${electionId}/registration-links`);
+      setLinks(data);
+    } catch {
+      // silencioso
+    }
+  };
+
+  const loadCredentials = async () => {
+    if (!electionId) return;
+    try {
+      setCredentialsLoading(true);
+      const data = await api.get<CredentialsDispatchResponse>(`/elections/${electionId}/credentials/dispatch`);
+      setCredentials(data.credentials);
+      setCredentialsTotal(data.total_active_voters);
+    } catch {
+      // silencioso
+    } finally {
+      setCredentialsLoading(false);
+    }
+  };
+
+  const handleCreateLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateLinkError(null);
+    if (!createLinkGroupId || !createLinkLabel.trim() || !createLinkExpiresAt) {
+      setCreateLinkError('Complete los campos obligatorios del enlace.');
+      return;
+    }
+    try {
+      setCreateLinkSubmitting(true);
+      await api.post(`/elections/${electionId}/registration-links`, {
+        group_id: createLinkGroupId,
+        node_id: createLinkNodeId || null,
+        label: createLinkLabel.trim(),
+        expires_at: new Date(createLinkExpiresAt).toISOString(),
+        max_uses: createLinkMaxUses ? parseInt(createLinkMaxUses, 10) : null,
+      });
+      setShowCreateLinkModal(false);
+      setCreateLinkLabel('');
+      setCreateLinkGroupId('');
+      setCreateLinkNodeId('');
+      setCreateLinkExpiresAt('');
+      setCreateLinkMaxUses('');
+      await loadLinks();
+    } catch (err: any) {
+      setCreateLinkError(err.message || 'Error al generar enlace de registro.');
+    } finally {
+      setCreateLinkSubmitting(false);
+    }
+  };
+
+  const handleRevokeLink = async (linkId: string) => {
+    if (!window.confirm('¿Desea revocar inmediatamente este enlace de registro?')) return;
+    try {
+      await api.post(`/elections/${electionId}/registration-links/${linkId}/revoke`);
+      await loadLinks();
+    } catch (err: any) {
+      alert(err.message || 'Error al revocar enlace.');
+    }
+  };
+
+  const handleSendInvitations = async (groupId?: string) => {
+    try {
+      setSendingInvitations(true);
+      setInvitationsFeedback(null);
+      const targetGroup = groupId || groups[0]?.id;
+      if (!targetGroup) return;
+      const res = await api.post<{ message: string; voters_invited: number }>(
+        `/elections/${electionId}/registration-links/send`,
+        { group_id: targetGroup }
+      );
+      setInvitationsFeedback(res.message);
+      await Promise.all([loadBaseData(), loadVotersList(), loadLinks()]);
+    } catch (err: any) {
+      alert(err.message || 'Error al despachar invitaciones.');
+    } finally {
+      setSendingInvitations(false);
+    }
+  };
+
+  const handleFreezeRollHash = async () => {
+    if (
+      !window.confirm(
+        '¿Desea congelar el padrón electoral y calcular el roll_hash canónico (SHA-256)? Esta acción cerrará el registro definitivamente.'
+      )
+    )
+      return;
+    try {
+      setFreezingRoll(true);
+      setRollFreezeFeedback(null);
+      const res = await api.post<RollHashFreezeResponse>(`/elections/${electionId}/freeze-roll-hash`);
+      setRollFreezeFeedback(
+        `${res.message} (Huella canónica: ${res.roll_hash.substring(0, 16)}...)`
+      );
+      await Promise.all([loadBaseData(), loadCredentials()]);
+    } catch (err: any) {
+      alert(err.message || 'Error al congelar el padrón.');
+    } finally {
+      setFreezingRoll(false);
+    }
+  };
+
+  const handleOpenVotingNow = async () => {
+    if (
+      !window.confirm(
+        '¿Desea abrir oficialmente el período de votación (VOTING_OPEN) y emitir las credenciales personales a los votantes activos?'
+      )
+    )
+      return;
+    try {
+      setOpeningVoting(true);
+      await api.post(`/elections/${electionId}/voting/open-now`);
+      await Promise.all([loadBaseData(), loadCredentials()]);
+    } catch (err: any) {
+      alert(err.message || 'Error al abrir la votación.');
+    } finally {
+      setOpeningVoting(false);
+    }
+  };
+
+  const copyToClipboard = (text: string, id: string, isCred: boolean = false) => {
+    navigator.clipboard.writeText(text);
+    if (isCred) {
+      setCopiedCredId(id);
+      setTimeout(() => setCopiedCredId(null), 2000);
+    } else {
+      setCopiedLinkId(id);
+      setTimeout(() => setCopiedLinkId(null), 2000);
     }
   };
 
@@ -712,6 +890,30 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
           >
             <Layers className="w-4 h-4" />
             <span>Desglose por Grupo y Nodo</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('links')}
+            className={`pb-3 flex items-center space-x-2 border-b-2 transition-colors ${
+              activeTab === 'links'
+                ? 'border-civic-navy-900 text-civic-navy-900'
+                : 'border-transparent text-stone-500 hover:text-stone-800'
+            }`}
+          >
+            <Link2 className="w-4 h-4 text-emerald-600" />
+            <span>Enlaces de Registro S1-08 ({links.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('credentials')}
+            className={`pb-3 flex items-center space-x-2 border-b-2 transition-colors ${
+              activeTab === 'credentials'
+                ? 'border-civic-navy-900 text-civic-navy-900'
+                : 'border-transparent text-stone-500 hover:text-stone-800'
+            }`}
+          >
+            <Key className="w-4 h-4 text-civic-navy-900" />
+            <span>Credenciales Demo S1-09 ({credentials.length})</span>
           </button>
         </div>
 
@@ -1156,6 +1358,300 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
           </div>
         )}
 
+        {/* PESTAÑA 5: ENLACES DE REGISTRO (S1-08) */}
+        {activeTab === 'links' && (
+          <div className="space-y-4">
+            <div className="bg-white border border-stone-300 rounded-xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h3 className="font-title text-base font-bold text-civic-navy-900 flex items-center space-x-2">
+                  <Link2 className="w-5 h-5 text-emerald-600" />
+                  <span>Gestión de Enlaces Públicos de Registro (S1-08)</span>
+                </h3>
+                <p className="text-xs text-stone-500 mt-1 max-w-xl">
+                  Cree enlaces públicos con tokens URL-safe de alta entropía asignados a un grupo o rama territorial. Los ciudadanos empadronados podrán confirmar su CI para activar su registro.
+                </p>
+              </div>
+
+              {isAdminGeneral && (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleSendInvitations()}
+                    disabled={sendingInvitations || links.length === 0}
+                    className="px-3.5 py-2 bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-800 text-xs font-bold rounded-lg transition-colors flex items-center space-x-1.5 shadow-sm disabled:opacity-50"
+                  >
+                    <Send className="w-3.5 h-3.5 text-blue-600" />
+                    <span>{sendingInvitations ? 'Despachando...' : 'Despachar Invitaciones'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowCreateLinkModal(true)}
+                    className="px-4 py-2 bg-civic-navy-900 hover:bg-civic-navy-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center space-x-1.5 shadow-sm"
+                  >
+                    <Link2 className="w-3.5 h-3.5" />
+                    <span>Nuevo Enlace</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {invitationsFeedback && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 flex items-center space-x-2">
+                <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <span>{invitationsFeedback}</span>
+              </div>
+            )}
+
+            {/* Tabla de Enlaces */}
+            <div className="bg-white border border-stone-300 rounded-xl shadow-electoral overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-civic-navy-900 text-stone-300 uppercase font-mono text-[10px] tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">Etiqueta / Descripción</th>
+                      <th className="py-3 px-4">Grupo / Nodo Objetivo</th>
+                      <th className="py-3 px-4">URL de Activación</th>
+                      <th className="py-3 px-4 text-center">Usos</th>
+                      <th className="py-3 px-4 text-center">Estado</th>
+                      <th className="py-3 px-4">Vencimiento</th>
+                      <th className="py-3 px-4 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-200">
+                    {links.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-stone-500">
+                          No existen enlaces de registro activos. Haga clic en <strong>Nuevo Enlace</strong> para generar uno.
+                        </td>
+                      </tr>
+                    ) : (
+                      links.map((link) => {
+                        const fullUrl = `${window.location.origin}/register/${link.raw_token || link.token_hash}`;
+                        const isCopied = copiedLinkId === link.id;
+                        return (
+                          <tr key={link.id} className="hover:bg-stone-50/80 transition-colors">
+                            <td className="py-3 px-4 font-semibold text-stone-900">
+                              {link.label}
+                            </td>
+                            <td className="py-3 px-4 text-stone-600">
+                              <span className="font-bold text-stone-800">{link.group_name || 'Grupo'}</span>
+                              {link.node_name && (
+                                <span className="block text-2xs font-mono text-stone-400">
+                                  {link.node_name}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 font-mono text-2xs text-stone-600">
+                              <div className="flex items-center space-x-1.5 bg-stone-100 px-2 py-1 rounded max-w-xs truncate">
+                                <span className="truncate">{fullUrl}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(fullUrl, link.id)}
+                                  className="text-stone-500 hover:text-stone-900 p-0.5"
+                                  title="Copiar URL"
+                                >
+                                  {isCopied ? (
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono">
+                              {link.uses_count} / {link.max_uses !== null ? link.max_uses : '∞'}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-3xs font-bold uppercase font-mono ${
+                                  link.status === 'ACTIVE'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : link.status === 'EXPIRED'
+                                    ? 'bg-stone-100 text-stone-600'
+                                    : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {link.status}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-stone-500 text-2xs font-mono">
+                              {formatElectoralDateTime(link.expires_at)}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              {link.status === 'ACTIVE' && isAdminGeneral && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevokeLink(link.id)}
+                                  className="text-red-600 hover:text-red-800 font-bold text-xs"
+                                >
+                                  Revocar
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PESTAÑA 6: CREDENCIALES DEMO (S1-09) */}
+        {activeTab === 'credentials' && (
+          <div className="space-y-4">
+            <div className="bg-white border border-stone-300 rounded-xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h3 className="font-title text-base font-bold text-civic-navy-900 flex items-center space-x-2">
+                    <Key className="w-5 h-5 text-civic-navy-900" />
+                    <span>Despacho de Credenciales Personales de Votación (S1-09)</span>
+                  </h3>
+                  {election?.roll_hash && (
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 rounded font-mono text-2xs font-bold">
+                      Padrón Congelado
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-stone-500 mt-1 max-w-xl">
+                  Credenciales de un solo uso emitidas a votantes <strong>ACTIVE</strong> al abrirse el período de sufragio. En entorno de evaluación académica, puede copiar el código para ingresar a la Cabina de Votación (<strong>/vote</strong>).
+                </p>
+              </div>
+
+              {isAdminGeneral && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {!election?.roll_hash && (
+                    <button
+                      onClick={handleFreezeRollHash}
+                      disabled={freezingRoll}
+                      className="px-3.5 py-2 bg-stone-800 hover:bg-stone-900 text-white text-xs font-bold rounded-lg transition-colors flex items-center space-x-1.5 shadow-sm disabled:opacity-50"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{freezingRoll ? 'Congelando...' : 'Congelar Padrón (roll_hash)'}</span>
+                    </button>
+                  )}
+
+                  {election?.status !== 'VOTING_OPEN' && election?.status !== 'VOTING_CLOSED' && (
+                    <button
+                      onClick={handleOpenVotingNow}
+                      disabled={openingVoting}
+                      className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center space-x-1.5 shadow-sm disabled:opacity-50"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{openingVoting ? 'Abriendo...' : 'Abrir Votación Ahora'}</span>
+                    </button>
+                  )}
+
+                  <Link
+                    to="/vote"
+                    target="_blank"
+                    className="px-3.5 py-2 bg-civic-navy-900 hover:bg-civic-navy-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center space-x-1.5 shadow-sm"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Abrir Cabina (/vote)</span>
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {rollFreezeFeedback && (
+              <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-lg text-xs text-emerald-900 flex items-center space-x-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span>{rollFreezeFeedback}</span>
+              </div>
+            )}
+
+            {/* Tabla de Credenciales */}
+            <div className="bg-white border border-stone-300 rounded-xl shadow-electoral overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-civic-navy-900 text-stone-300 uppercase font-mono text-[10px] tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">Documento (CI)</th>
+                      <th className="py-3 px-4">Votante Habilitado</th>
+                      <th className="py-3 px-4">Grupo / Segmento</th>
+                      <th className="py-3 px-4">Código Credencial Personal</th>
+                      <th className="py-3 px-4 text-center">Estado Uso</th>
+                      <th className="py-3 px-4 text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-200">
+                    {credentialsLoading ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-stone-500">
+                          Cargando credenciales despachadas...
+                        </td>
+                      </tr>
+                    ) : credentials.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-stone-500">
+                          Aún no se han emitido credenciales. Las credenciales se generan al abrirse la votación oficial (<strong>VOTING_OPEN</strong>).
+                        </td>
+                      </tr>
+                    ) : (
+                      credentials.map((cred) => {
+                        const isCopied = copiedCredId === cred.voter_id;
+                        return (
+                          <tr key={cred.voter_id} className="hover:bg-stone-50/80 transition-colors">
+                            <td className="py-3 px-4 font-mono font-bold text-stone-900">
+                              {cred.document_id}
+                            </td>
+                            <td className="py-3 px-4 font-semibold text-stone-800">
+                              {cred.full_name}
+                            </td>
+                            <td className="py-3 px-4 text-stone-600">
+                              <span>{cred.group_name}</span>
+                              <span className="block text-3xs font-mono text-stone-400">
+                                {cred.node_path}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 font-mono text-xs">
+                              <span className="bg-stone-100 text-civic-navy-900 px-2 py-1 rounded font-bold tracking-wider">
+                                {cred.credential_code}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              {cred.is_used ? (
+                                <span className="px-2 py-0.5 rounded-full text-3xs font-bold uppercase font-mono bg-stone-100 text-stone-500">
+                                  Utilizada
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-3xs font-bold uppercase font-mono bg-emerald-100 text-emerald-800">
+                                  Disponible
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(cred.credential_code, cred.voter_id, true)}
+                                className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-2xs font-bold flex items-center space-x-1 ml-auto"
+                              >
+                                {isCopied ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-emerald-600" />
+                                    <span>¡Copiado!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copiar</span>
+                                  </>
+                                )}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* MODAL: EMPADRONAR VOTANTE INDIVIDUAL */}
         {showCreateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-civic-navy-950/70 backdrop-blur-xs p-4 overflow-y-auto">
@@ -1442,6 +1938,137 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
                   {blockSubmitting ? 'Bloqueando...' : 'Confirmar Bloqueo'}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: GENERAR ENLACE DE REGISTRO (S1-08) */}
+        {showCreateLinkModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-civic-navy-950/70 backdrop-blur-xs p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl border border-stone-300 shadow-2xl max-w-lg w-full p-6 space-y-4 my-8">
+              <div className="flex items-center justify-between border-b pb-3">
+                <h3 className="font-title text-base font-bold text-civic-navy-900 flex items-center space-x-2">
+                  <Link2 className="w-5 h-5 text-emerald-600" />
+                  <span>Crear Enlace Público de Registro</span>
+                </h3>
+                <button
+                  onClick={() => setShowCreateLinkModal(false)}
+                  className="text-stone-400 hover:text-stone-600 font-bold text-xl"
+                >
+                  &times;
+                </button>
+              </div>
+
+              {createLinkError && (
+                <div className="p-3 text-xs bg-red-50 text-red-700 border border-red-200 rounded-lg">
+                  {createLinkError}
+                </div>
+              )}
+
+              <form onSubmit={handleCreateLink} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold mb-1 text-stone-700">
+                    Etiqueta / Descripción del Enlace *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Registro Estudiantes de Informática 2026"
+                    value={createLinkLabel}
+                    onChange={(e) => setCreateLinkLabel(e.target.value)}
+                    className="w-full border border-stone-300 p-2 rounded-lg"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold mb-1 text-stone-700">Grupo Objetivo *</label>
+                    <select
+                      required
+                      value={createLinkGroupId}
+                      onChange={(e) => {
+                        setCreateLinkGroupId(e.target.value);
+                        setCreateLinkNodeId('');
+                      }}
+                      className="w-full border border-stone-300 p-2 rounded-lg bg-white"
+                    >
+                      <option value="">Seleccione Grupo...</option>
+                      {groups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name} ({g.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold mb-1 text-stone-700">
+                      Rama / Nodo (Opcional)
+                    </label>
+                    <select
+                      value={createLinkNodeId}
+                      onChange={(e) => setCreateLinkNodeId(e.target.value)}
+                      className="w-full border border-stone-300 p-2 rounded-lg bg-white"
+                      disabled={!createLinkGroupId}
+                    >
+                      <option value="">Todo el Grupo (General)</option>
+                      {nodes
+                        .filter((n) => n.group_id === createLinkGroupId)
+                        .map((n) => (
+                          <option key={n.id} value={n.id}>
+                            {'—'.repeat(n.depth - 1)} {n.name} ({n.code})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold mb-1 text-stone-700">
+                      Fecha Límite de Expiración *
+                    </label>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={createLinkExpiresAt}
+                      onChange={(e) => setCreateLinkExpiresAt(e.target.value)}
+                      className="w-full border border-stone-300 p-2 rounded-lg"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold mb-1 text-stone-700">
+                      Límite Máximo de Usos (Opcional)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Ilimitado si se deja vacío"
+                      value={createLinkMaxUses}
+                      onChange={(e) => setCreateLinkMaxUses(e.target.value)}
+                      className="w-full border border-stone-300 p-2 rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-3 border-t">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateLinkModal(false)}
+                    className="px-4 py-2 border rounded-lg text-stone-600 hover:bg-stone-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createLinkSubmitting}
+                    className="px-5 py-2 bg-civic-navy-900 hover:bg-civic-navy-800 text-white rounded-lg font-bold shadow-sm disabled:opacity-50"
+                  >
+                    {createLinkSubmitting ? 'Generando Enlace...' : 'Generar Enlace Seguro'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

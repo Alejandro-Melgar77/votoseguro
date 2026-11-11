@@ -511,4 +511,298 @@ export interface DuplicateResolveRequest {
   reason: string;
 }
 
+// =============================================================================
+// S1-08: Enlaces de Registro y Activación Pública de Votantes
+// =============================================================================
+
+export interface RegistrationLink {
+  id: string;
+  election_id: string;
+  group_id: string;
+  node_id: string | null;
+  token_hash: string;
+  raw_token: string | null;
+  label: string;
+  expires_at: string;
+  max_uses: number | null;
+  uses_count: number;
+  status: 'ACTIVE' | 'EXPIRED' | 'REVOKED';
+  created_by: string;
+  created_at: string;
+  registration_url: string;
+  group_name?: string | null;
+  node_name?: string | null;
+}
+
+export interface CreateRegistrationLinkRequest {
+  group_id: string;
+  node_id?: string | null;
+  label: string;
+  expires_at: string;
+  max_uses?: number | null;
+}
+
+export interface PublicRegistrationInfo {
+  election_id: string;
+  election_name: string;
+  organization_name: string;
+  group_name: string;
+  node_name: string | null;
+  node_path: string | null;
+  closes_at: string;
+}
+
+export interface PublicActivationRequest {
+  document_id: string;
+  email?: string | null;
+  phone?: string | null;
+}
+
+export interface PublicActivationResponse {
+  message: string;
+  voter_id: string;
+  full_name: string;
+  document_id: string;
+  group_name: string;
+  node_path: string;
+  activated_at: string;
+  status: string;
+}
+
+export interface RollHashFreezeResponse {
+  message: string;
+  election_id: string;
+  status: string;
+  roll_hash: string;
+  active_voters_count: number;
+  frozen_at: string;
+}
+
+// =============================================================================
+// S1-09: Credenciales de Votación, Papeleta Automática y Voto Ciego
+// =============================================================================
+
+export interface VoterLoginRequest {
+  document_id: string;
+  credential_code: string;
+}
+
+export interface VoterSessionInfo {
+  id: string;
+  election_id: string;
+  group_id: string;
+  group_name: string;
+  node_id: string;
+  node_name: string;
+  node_path: string;
+  document_id: string;
+  full_name: string;
+}
+
+export interface VoterSessionResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  voter: VoterSessionInfo;
+}
+
+export interface CandidateBallotItem {
+  id: string;
+  name: string;
+  party_or_front?: string | null;
+  photo_url?: string | null;
+  ballot_order: number;
+}
+
+export interface ContestBallotItem {
+  contest_id: string;
+  contest_name: string;
+  description?: string | null;
+  scope_level_depth: number;
+  scope_level_name: string;
+  constituency_id: string;
+  node_name: string;
+  allow_blank: boolean;
+  allow_null: boolean;
+  candidates: CandidateBallotItem[];
+}
+
+export interface AutomaticBallotResponse {
+  election_id: string;
+  election_name: string;
+  voter: VoterSessionInfo;
+  contests: ContestBallotItem[];
+}
+
+export interface VoteSelectionItem {
+  contest_id: string;
+  constituency_id: string;
+  choice_type: 'CANDIDATE' | 'BLANK' | 'NULL';
+  candidate_id?: string | null;
+}
+
+export interface CastBallotRequest {
+  votes: VoteSelectionItem[];
+}
+
+export interface CastReceiptResponse {
+  receipt_hash: string;
+  cast_at: string;
+  election_name: string;
+  votes_count: number;
+  verification_url: string;
+  verification_code: string;
+}
+
+export interface ReceiptVerificationResponse {
+  verified: boolean;
+  receipt_hash: string;
+  election_id: string;
+  election_name: string;
+  cast_at_minute: string;
+  total_votes_in_ballot: number;
+  message: string;
+}
+
+export interface CredentialDispatchItem {
+  voter_id: string;
+  full_name: string;
+  document_id: string;
+  group_name: string;
+  node_path: string;
+  credential_code: string;
+  issued_at: string;
+  expires_at: string;
+  is_used: boolean;
+}
+
+export interface CredentialsDispatchResponse {
+  election_id: string;
+  total_active_voters: number;
+  credentials: CredentialDispatchItem[];
+}
+
+// =============================================================================
+// S1-10: Cómputo Oficial, Desgloses Jerárquicos y k-Anonimato
+// =============================================================================
+
+export interface CandidateResultItem {
+  candidate_id: string;
+  full_name: string;
+  ballot_number: number;
+  ballot_order: number;
+  party_affiliation?: string | null;
+  party_color?: string | null;
+  photo_url?: string | null;
+  votes_count: number;
+  percentage: number;
+}
+
+export interface BreakdownCellResult {
+  cell_id: string;
+  cell_name: string;
+  cell_code?: string | null;
+  cell_path?: string | null;
+  total_votes: number;
+  redacted_by_k_anonymity: boolean;
+  k_threshold: number;
+  k_anonymity_message?: string | null;
+  candidates: CandidateResultItem[] | null;
+  blank_count: number | null;
+  null_count: number | null;
+}
+
+export interface ContestBreakdownResult {
+  breakdown_id: string;
+  kind: string;
+  label?: string | null;
+  level_id?: string | null;
+  level_name?: string | null;
+  filter_id?: string | null;
+  filter_key?: string | null;
+  cells: BreakdownCellResult[];
+}
+
+export interface ConstituencyResult {
+  constituency_id: string;
+  node_id: string;
+  node_name: string;
+  node_code: string;
+  node_path: string;
+  total_cast: number;
+  candidates_total: number;
+  blank_count: number;
+  null_count: number;
+  exact_match_verified: boolean;
+  candidates: CandidateResultItem[];
+  breakdowns: ContestBreakdownResult[];
+}
+
+export interface ContestResult {
+  contest_id: string;
+  contest_name: string;
+  contest_code: string;
+  description?: string | null;
+  scope_level_id: string;
+  scope_level_name: string;
+  constituencies: ConstituencyResult[];
+}
+
+export interface GroupResult {
+  group_id: string;
+  group_name: string;
+  group_code: string;
+  contests: ContestResult[];
+}
+
+export interface ElectionResultsResponse {
+  election_id: string;
+  election_name: string;
+  status: string;
+  k_anonymity: number;
+  published_at?: string | null;
+  voting_closed_at?: string | null;
+  groups: GroupResult[];
+}
+
+export interface NodeParticipationItem {
+  node_id: string;
+  node_name: string;
+  node_code: string;
+  node_path: string;
+  depth: number;
+  active_voters: number;
+  voted_count: number;
+  participation_rate_pct: number;
+}
+
+export interface GroupParticipationItem {
+  group_id: string;
+  group_name: string;
+  group_code: string;
+  active_voters: number;
+  voted_count: number;
+  participation_rate_pct: number;
+  nodes: NodeParticipationItem[];
+}
+
+export interface ParticipationMetricsResponse {
+  election_id: string;
+  election_name: string;
+  total_active_voters: number;
+  total_voted: number;
+  participation_rate_pct: number;
+  by_group: GroupParticipationItem[];
+}
+
+export interface SeedDemoResponse {
+  status: string;
+  message: string;
+  results: {
+    status: string;
+    org1: string;
+    org2: string;
+  };
+}
+
 

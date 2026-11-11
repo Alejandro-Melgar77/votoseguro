@@ -10,6 +10,9 @@ import { DelegateAdminsPage } from '@/pages/DelegateAdminsPage';
 import { StructureArchitectPage } from '@/pages/StructureArchitectPage';
 import { CandidatesBallotStudioPage } from '@/pages/CandidatesBallotStudioPage';
 import { VoterRollRegistrationPanelPage } from '@/pages/VoterRollRegistrationPanelPage';
+import { PublicVoterRegistrationPage } from '@/pages/PublicVoterRegistrationPage';
+import { VoterBallotBoothPage } from '@/pages/VoterBallotBoothPage';
+import { ElectionResultsTallyPage } from '@/pages/ElectionResultsTallyPage';
 
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
@@ -39,6 +42,8 @@ export const App: React.FC = () => {
         <Route path="/" element={<PublicLandingRequestPage />} />
         <Route path="/request-election" element={<PublicLandingRequestPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register/:token" element={<PublicVoterRegistrationPage />} />
+        <Route path="/vote" element={<VoterBallotBoothPage />} />
 
         {/* Consola de Operador de Plataforma */}
         <Route
@@ -101,6 +106,15 @@ export const App: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={['ADMIN_GENERAL', 'ADMIN_SEGMENT']}>
               <DelegateAdminsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/elections/:electionId/results"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN_GENERAL', 'ADMIN_SEGMENT', 'OBSERVER']}>
+              <ElectionResultsTallyPage />
             </ProtectedRoute>
           }
         />

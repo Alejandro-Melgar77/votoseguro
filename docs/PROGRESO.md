@@ -14,16 +14,18 @@
 | **S1-05** | Must | Candidatos por Circunscripción | Completado (Iteración 2) | 11/11/2026 | 11/11/2026 | CRUD de candidatos por circunscripción, reordenamiento atómico en papeleta, validación de imagen (magic bytes) y previsualización de papeleta oficial con Blanco/Nulo. |
 | **S1-06** | Must | Publicación y config_hash | Completado (Iteración 2) | 11/11/2026 | 11/11/2026 | Ceremonia de publicación `DRAFT -> SCHEDULED`, validador de 6 reglas de integridad, congelamiento estructural con 409 Conflict y cálculo canónico RFC 8785 SHA-256. |
 | **S1-07** | Must | Panel de Registro y Carga de Padrón | Completado (Iteración 2) | 11/11/2026 | 11/11/2026 | Padrón solo mutable en `REGISTRATION_OPEN`, alta individual y masiva CSV con validación de profundidad de nodo, resumen de avance por grupo/nodo y control de inhabilitaciones. |
-| **S1-08** | Must | Enlaces de Registro y roll_hash | Pendiente | | | Activación pública por enlace firmado y congelamiento de padrón (Iteración 3). |
-| **S1-09** | Must | Papeleta Automática y Voto Atómico | Pendiente | | | Emisión de voto, Nullifiers HMAC-SHA256 por circunscripción, sin voter_id en tabla vote y recibo criptográfico (Iteración 3). |
-| **S1-10** | Must | Resultados y k-Anonimato | Pendiente | | | Escrutinio con supresión de celdas menores a k votos y verificación de roll_hash (Iteración 3). |
+| **S1-08** | Must | Enlaces de Registro y roll_hash | Completado (Iteración 3) | 11/11/2026 | 11/11/2026 | Enlaces por grupo/nodo con token URL-safe, activación pública con CI en `/register/:token` y congelamiento de padrón con cálculo canónico determinista de `roll_hash` (RFC 8785 SHA-256). |
+| **S1-09** | Must | Papeleta Automática y Voto Atómico | Completado (Iteración 3) | 11/11/2026 | 11/11/2026 | Emisión de credenciales personales de un solo uso (`VS-XXXX-XXXX-XXXX`), login de votante, papeleta automática según path nodal (Algoritmo 3.2), emisión atómica blind cast (Algoritmo 3.3) con nullifiers HMAC-SHA256, sin voter_id en tabla vote (Invariante #9), timestamp truncado al minuto (Invariante #17) y recibo criptográfico auditado. |
+| **S1-10** | Must | Resultados y k-Anonimato | Completado (Iteración 3) | 11/11/2026 | 11/11/2026 | Resultados herméticamente bloqueados con 403 Forbidden antes del cierre (Invariante #11), total de circunscripción 100% exacto verificado, desgloses jerárquicos configurados y k-anonimato estricto (Invariante #12: redacción si votos < k=5). |
 | **IA-L2a**| Should | Detección de Duplicados Asistida (Padrón) | Completado (Iteración 2) | 11/11/2026 | 11/11/2026 | Detección híbrida pg_trgm + fuzzystrmatch con fallback en memoria para tests, registro de import_issue y bandeja de dictamen humano soberano. |
 | **S1-11** | Should | Delegados de Solo Lectura (ADMIN_SEGMENT) | Completado (Iteración 1) | 11/11/2026 | 11/11/2026 | Alcance acotado por grupo o nodo jerárquico. Endpoints y UI funcional. |
 | **S1-12** | Should | Solicitud Pública de Elección | Completado (Iteración 1) | 11/11/2026 | 11/11/2026 | Flujo público, radicación y aprobación/rechazo por PLATFORM_ADMIN. |
 
 ---
 
-## Métricas de Calidad de la Iteración 2
-- **Tests Automatizados:** 10 tests de integración y reglas de negocio pasando al 100% en `apps/api/tests/`.
-- **Compilación Frontend:** TypeScript estricto y Vite build pasando con 0 errores (1643 módulos empaquetados).
-- **Inmutabilidad y Seguridad:** Verificación de Invariante #3 (bloqueo `409 Conflict` post-publicación) e Invariante #5 (padrón solo mutable en `REGISTRATION_OPEN`).
+## Métricas de Calidad de la Iteración 3 (Release Final Sprint 1 v1.0)
+- **Cobertura de Historias:** 14 de 14 Historias de Usuario completadas al 100% (56 pts Must + 8 pts Should = 64 pts).
+- **Tests Automatizados:** 15 suites de pruebas de integración y verificación de invariantes pasando al 100% en `apps/api/tests/` (pytest: 15 passed en ~4.0s).
+- **Compilación Frontend:** TypeScript estricto y Vite build pasando con 0 errores (1646 módulos empaquetados en producción).
+- **Base de Datos y Migraciones:** Alembic actualizado a `0003_iter3_voting` en PostgreSQL (Supabase) y SQLite en memoria.
+- **Sembrador Demostrativo (`seed:demo`):** Ejecución idempotente exitosa tanto por CLI (`python -m app.db.seed_demo`) como mediante endpoint protegido `POST /api/v1/platform/seed-demo`, aprovisionando Universidad EL GRAN ESTUDIO (36 votantes, homónimos IA-L2a, enlaces y credenciales) y Elecciones Nacionales Ecuador.

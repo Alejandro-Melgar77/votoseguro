@@ -45,6 +45,7 @@ class VotingCredential(Base):
         index=True,
     )
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    raw_token: Mapped[str | None] = mapped_column(String(128), nullable=True)
     issued_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

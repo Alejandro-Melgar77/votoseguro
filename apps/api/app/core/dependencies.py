@@ -18,7 +18,10 @@ from app.core.exceptions import (
 )
 from app.core.security import decode_access_token
 from app.core.time import TimeProvider, default_time_provider
+from app.db.models.election import Election
 from app.db.models.user import AdminAssignment, User, UserRole, UserStatus
+from app.db.models.voter import Voter, VoterStatus
+from app.db.models.voting import VotingCredential
 from app.db.session import get_db_session
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -120,3 +123,70 @@ def require_admin_general(
             "Esta operación solo puede ser efectuada por el Administrador General (ADMIN_GENERAL) de la institución."
         )
     return tenant
+
+
+@dataclass
+class VoterSessionContext:
+    voter_id: uuid.UUID
+    election_id: uuid.UUID
+    credential_id: uuid.UUID
+    voter: "Voter"
+    election: "Election"
+    credential: "VotingCredential"
+
+
+async def get_current_voter_session(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> VoterSessionContext:
+    """Valida el JWT de sesión de votante en cabina electoral."""
+    from app.db.models.election import Election
+    from app.db.models.voter import Voter, VoterStatus
+    from app.db.models.voting import VotingCredential
+
+    try:
+        payload = decode_access_token(token)
+        if payload.get("role") != "VOTER":
+            raise UnauthorizedException("El token no corresponde a una sesión de votación válida.")
+        voter_id = uuid.UUID(payload.get("sub"))
+        election_id = uuid.UUID(payload.get("election_id"))
+        credential_id = uuid.UUID(payload.get("credential_id"))
+    except (jwt.PyJWTError, ValueError, TypeError):
+        raise UnauthorizedException("Token de votante inválido o expirado.")
+
+    # Cargar votante con grupo y nodo
+    stmt_voter = (
+        select(Voter)
+        .options(selectinload(Voter.group), selectinload(Voter.node))
+        .where(Voter.id == voter_id, Voter.election_id == election_id)
+    )
+    voter = (await db.execute(stmt_voter)).scalar_one_or_none()
+    if not voter:
+        raise UnauthorizedException("Votante no empadronado en esta elección.")
+    if voter.status != VoterStatus.ACTIVE:
+        raise ForbiddenException("El votante no se encuentra en estado ACTIVO.")
+
+    # Cargar elección
+    stmt_election = select(Election).where(Election.id == election_id)
+    election = (await db.execute(stmt_election)).scalar_one_or_none()
+    if not election:
+        raise NotFoundException("Elección no encontrada.")
+
+    # Cargar credencial
+    stmt_cred = select(VotingCredential).where(
+        VotingCredential.id == credential_id,
+        VotingCredential.voter_id == voter_id,
+        VotingCredential.election_id == election_id,
+    )
+    credential = (await db.execute(stmt_cred)).scalar_one_or_none()
+    if not credential:
+        raise UnauthorizedException("Credencial de votación no válida.")
+
+    return VoterSessionContext(
+        voter_id=voter_id,
+        election_id=election_id,
+        credential_id=credential_id,
+        voter=voter,
+        election=election,
+        credential=credential,
+    )

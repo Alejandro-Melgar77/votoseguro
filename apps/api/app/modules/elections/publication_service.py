@@ -39,6 +39,108 @@ def ensure_utc(dt: datetime | None) -> datetime | None:
     return dt
 
 
+async def canonical_election_dump(db: AsyncSession, election_id: uuid.UUID) -> dict:
+    """
+    Construye el diccionario determinista canónico de una elección para cálculo de config_hash (RFC 8785).
+    """
+    stmt = (
+        select(Election)
+        .where(Election.id == election_id)
+        .options(
+            selectinload(Election.groups).selectinload(VoterGroup.levels),
+            selectinload(Election.groups).selectinload(VoterGroup.nodes),
+            selectinload(Election.groups).selectinload(VoterGroup.filters),
+            selectinload(Election.groups)
+            .selectinload(VoterGroup.contests)
+            .selectinload(Contest.scope_level),
+            selectinload(Election.groups)
+            .selectinload(VoterGroup.contests)
+            .selectinload(Contest.breakdowns),
+            selectinload(Election.groups)
+            .selectinload(VoterGroup.contests)
+            .selectinload(Contest.constituencies)
+            .selectinload(Constituency.node),
+            selectinload(Election.groups)
+            .selectinload(VoterGroup.contests)
+            .selectinload(Contest.constituencies)
+            .selectinload(Constituency.candidates),
+        )
+    )
+    election = (await db.execute(stmt)).scalar_one_or_none()
+    if not election:
+        raise NotFoundException("Elección no encontrada.")
+
+    canonical_groups = []
+    for group in sorted(election.groups, key=lambda g: g.code):
+        sorted_levels = [
+            {"depth": lvl.depth, "name": lvl.name}
+            for lvl in sorted(group.levels, key=lambda l: l.depth)
+        ]
+        sorted_nodes = [
+            {"code": n.code, "name": n.name, "path": n.path, "depth": n.depth}
+            for n in sorted(group.nodes, key=lambda n: n.path)
+        ]
+        sorted_filters = [
+            {
+                "key": f.key,
+                "label": f.label,
+                "allowed_values": sorted(f.allowed_values),
+                "is_required": f.is_required,
+            }
+            for f in sorted(group.filters, key=lambda f: f.key)
+        ]
+
+        sorted_contests = []
+        for c in sorted(group.contests, key=lambda ct: (ct.display_order, ct.name)):
+            sorted_breakdowns = [
+                {"kind": b.kind.value, "label": b.label}
+                for b in sorted(c.breakdowns, key=lambda b: (b.kind.value, b.label))
+            ]
+            sorted_constituencies = []
+            for const in sorted(c.constituencies, key=lambda ct: ct.node.path if ct.node else ""):
+                sorted_cands = [
+                    {
+                        "name": cd.name,
+                        "party_or_front": cd.party_or_front or "",
+                        "ballot_order": cd.ballot_order,
+                    }
+                    for cd in sorted(const.candidates, key=lambda cd: cd.ballot_order)
+                ]
+                sorted_constituencies.append({
+                    "node_path": const.node.path if const.node else "",
+                    "candidates": sorted_cands,
+                })
+
+            sorted_contests.append({
+                "name": c.name,
+                "allow_blank": c.allow_blank,
+                "allow_null": c.allow_null,
+                "display_order": c.display_order,
+                "scope_level_depth": c.scope_level.depth if c.scope_level else 1,
+                "breakdowns": sorted_breakdowns,
+                "constituencies": sorted_constituencies,
+            })
+
+        canonical_groups.append({
+            "code": group.code,
+            "name": group.name,
+            "levels": sorted_levels,
+            "nodes": sorted_nodes,
+            "filters": sorted_filters,
+            "contests": sorted_contests,
+        })
+
+    return {
+        "schema_version": "votoseguro.config.v1",
+        "election_id": str(election.id),
+        "organization_id": str(election.organization_id),
+        "name": election.name,
+        "timezone": election.timezone,
+        "k_anonymity": election.k_anonymity,
+        "groups": canonical_groups,
+    }
+
+
 class PublicationService:
 
     @staticmethod

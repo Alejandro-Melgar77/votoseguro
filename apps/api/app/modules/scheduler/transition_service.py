@@ -16,6 +16,15 @@ from app.modules.audit.service import AuditService
 ADVISORY_LOCK_ID = 849201
 
 
+def generate_credential_code() -> str:
+    """Genera un código legible de credencial de un solo uso con formato VS-XXXX-XXXX-XXXX."""
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    p1 = "".join(secrets.choice(alphabet) for _ in range(4))
+    p2 = "".join(secrets.choice(alphabet) for _ in range(4))
+    p3 = "".join(secrets.choice(alphabet) for _ in range(4))
+    return f"VS-{p1}-{p2}-{p3}"
+
+
 async def run_scheduler_tick(session: AsyncSession, time_provider: TimeProvider) -> list[str]:
     """
     Ejecuta un ciclo de verificación y transición de fases electorales.
@@ -162,12 +171,13 @@ async def run_scheduler_tick(session: AsyncSession, time_provider: TimeProvider)
             )
             existing_cred = (await session.execute(stmt_cred)).scalar_one_or_none()
             if not existing_cred:
-                raw_token = secrets.token_urlsafe(32)
+                raw_token = generate_credential_code()
                 token_hash = sha256_hex(raw_token)
                 cred = VotingCredential(
                     election_id=election.id,
                     voter_id=v.id,
                     token_hash=token_hash,
+                    raw_token=raw_token,
                     issued_at=db_now,
                     expires_at=election.voting_closes_at,
                     used_at=None,

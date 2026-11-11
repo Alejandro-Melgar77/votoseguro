@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     AI_LOCAL_ENABLED: bool = False
     AI_EXTERNAL_ENABLED: bool = False
 
+    # Inspector de Credenciales de Demostración (Sprint 1)
+    DEMO_CREDENTIAL_INSPECTOR_ENABLED: bool = True
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

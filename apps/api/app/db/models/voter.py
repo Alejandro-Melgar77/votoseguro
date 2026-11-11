@@ -195,6 +195,7 @@ class RegistrationLink(Base):
         index=True,
     )
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    raw_token: Mapped[str | None] = mapped_column(String(128), nullable=True)
     label: Mapped[str | None] = mapped_column(String(150), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     max_uses: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -210,3 +211,7 @@ class RegistrationLink(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+
+    # Relaciones
+    group = relationship("VoterGroup")
+    node = relationship("UnitNode")

@@ -10,13 +10,19 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision: str = '0002_sprint1_iteration2_reconciliation'
+revision: str = '0002_iter2_reconcile'
 down_revision: Union[str, None] = '0001_initial_sprint1_schema'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # 0. Ensanchar columna version_num si es PostgreSQL
+    try:
+        op.execute("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(128)")
+    except Exception:
+        pass
+
     # 1. Agregar description a contest si no existe
     op.add_column('contest', sa.Column('description', sa.Text(), nullable=True))
 

@@ -51,6 +51,30 @@ def create_access_token(
     return encoded_jwt
 
 
+def create_voter_token(
+    voter_id: str,
+    election_id: str,
+    credential_id: str,
+    expires_delta: timedelta | None = None,
+) -> str:
+    """Genera un token JWT efímero para sesión de cabina de votación."""
+    now = datetime.now(timezone.utc)
+    if expires_delta:
+        expire = now + expires_delta
+    else:
+        expire = now + timedelta(minutes=60)
+
+    payload: dict[str, Any] = {
+        "sub": str(voter_id),
+        "role": "VOTER",
+        "election_id": str(election_id),
+        "credential_id": str(credential_id),
+        "iat": now,
+        "exp": expire,
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
 def decode_access_token(token: str) -> dict[str, Any]:
     """Decodifica y valida la firma y expiración de un token JWT."""
     return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])

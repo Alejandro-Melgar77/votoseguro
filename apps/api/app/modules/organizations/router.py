@@ -64,6 +64,24 @@ async def list_organizations(
     return await OrganizationService.list_organizations(db=db)
 
 
+@router.post(
+    "/platform/seed-demo",
+    status_code=status.HTTP_200_OK,
+)
+async def trigger_seed_demo(
+    current_user: Annotated[User, Depends(require_platform_admin)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """Puebla de forma idempotente las instituciones de demostración (seed:demo)."""
+    from app.db.seed_demo import run_seed_demo
+    res = await run_seed_demo(session=db)
+    return {
+        "status": "success",
+        "message": "Datos de demostración aprovisionados exitosamente.",
+        "results": res,
+    }
+
+
 @router.get(
     "/platform/election-requests",
     response_model=list[ElectionRequestResponse],

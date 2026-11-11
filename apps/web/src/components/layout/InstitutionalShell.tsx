@@ -11,6 +11,7 @@ import {
   Layers,
   Award,
   UserCheck,
+  BarChart3,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-store';
 import { TopSecurityBanner } from './TopSecurityBanner';
@@ -157,6 +158,18 @@ export const InstitutionalShell: React.FC<InstitutionalShellProps> = ({
                     >
                       <Users className="w-4 h-4 text-seal-emerald" />
                       <span>Administradores Delegados</span>
+                    </Link>
+
+                    <Link
+                      to={`/elections/${activeElectionId}/results`}
+                      className={`flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                        location.pathname.includes('/results')
+                          ? 'bg-civic-navy-800 text-white font-semibold'
+                          : 'hover:bg-civic-navy-800/60 text-stone-300'
+                      }`}
+                    >
+                      <BarChart3 className="w-4 h-4 text-seal-amber" />
+                      <span>Centro de Cómputo</span>
                     </Link>
                   </>
                 )}

@@ -56,3 +56,12 @@ class FakeTimeProvider:
 
 # Instancia por defecto para inyección
 default_time_provider: TimeProvider = DatabaseTimeProvider()
+
+
+def ensure_utc(dt: datetime | None) -> datetime | None:
+    """Garantiza que una fecha/hora tenga zona horaria UTC (indispensable para SQLite en pruebas)."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)

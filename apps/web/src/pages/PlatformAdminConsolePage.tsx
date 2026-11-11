@@ -8,6 +8,8 @@ import {
   Shield,
   FileText,
   AlertCircle,
+  Sparkles,
+  CheckCircle2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { InstitutionalShell } from '@/components/layout/InstitutionalShell';
@@ -51,6 +53,35 @@ export const PlatformAdminConsolePage: React.FC = () => {
   });
 
   const [rejectReason, setRejectReason] = useState('');
+  const [isSeedingDemo, setIsSeedingDemo] = useState(false);
+  const [seedFeedback, setSeedFeedback] = useState<string | null>(null);
+
+  const handleTriggerSeedDemo = async () => {
+    if (
+      !window.confirm(
+        '¿Desea aprovisionar los datos de demostración de Universidad EL GRAN ESTUDIO y Elecciones Nacionales Ecuador (seed:demo)?'
+      )
+    ) {
+      return;
+    }
+    try {
+      setIsSeedingDemo(true);
+      setSeedFeedback(null);
+      const res = await api.post<{
+        status: string;
+        message: string;
+        results: { org1: string; org2: string };
+      }>('/platform/seed-demo');
+      setSeedFeedback(
+        `Datos de demostración aprovisionados exitosamente: ${res.results.org1} y ${res.results.org2}.`
+      );
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Error al ejecutar el sembrado de demostración.');
+    } finally {
+      setIsSeedingDemo(false);
+    }
+  };
 
   const loadData = async () => {
     setIsLoading(true);
@@ -131,14 +162,31 @@ export const PlatformAdminConsolePage: React.FC = () => {
               Aprovisionamiento de organizaciones multi-tenant y revisión de solicitudes de elección.
             </p>
           </div>
-          <button
-            onClick={() => setIsNewOrgModalOpen(true)}
-            className="px-4 py-2 bg-civic-navy-900 hover:bg-civic-navy-800 text-white font-semibold text-xs rounded-lg transition-colors flex items-center space-x-1.5 shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nueva Organización</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleTriggerSeedDemo}
+              disabled={isSeedingDemo}
+              className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs rounded-lg transition-colors flex items-center space-x-1.5 shadow-sm disabled:opacity-50"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>{isSeedingDemo ? 'Aprovisionando...' : 'Sembrar Datos Demo (seed:demo)'}</span>
+            </button>
+            <button
+              onClick={() => setIsNewOrgModalOpen(true)}
+              className="px-4 py-2 bg-civic-navy-900 hover:bg-civic-navy-800 text-white font-semibold text-xs rounded-lg transition-colors flex items-center space-x-1.5 shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nueva Organización</span>
+            </button>
+          </div>
         </div>
+
+        {seedFeedback && (
+          <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-lg text-xs text-emerald-900 flex items-center space-x-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span>{seedFeedback}</span>
+          </div>
+        )}
 
         {/* Selector de Pestañas */}
         <div className="flex border-b border-stone-300 space-x-6 text-xs font-semibold">
