@@ -440,7 +440,9 @@ def upgrade() -> None:
         RAISE EXCEPTION 'audit_log is append-only. UPDATE and DELETE operations are forbidden.';
     END;
     $$ LANGUAGE plpgsql;
+    """)
 
+    op.execute("""
     CREATE TRIGGER trg_audit_log_immutable
     BEFORE UPDATE OR DELETE ON audit_log
     FOR EACH ROW EXECUTE FUNCTION prevent_audit_log_mutation();
