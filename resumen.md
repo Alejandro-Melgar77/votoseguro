@@ -320,19 +320,19 @@ El repositorio se encuentra alojado y sincronizado en:
 Para evaluar y auditar la plataforma de forma integral de extremo a extremo:
 
 1. **Sembrado Demo:**
-   - Iniciar sesión como `admin@votoseguro.org` (clave `Admin1234!*`) en `/login`.
+   - Iniciar sesión como `admin@votoseguro.org` (clave `AdminPlatform2026!`) en `/login`.
    - Entrar a la Consola de Plataforma (`/platform/console`) y presionar el botón **"Sembrar Datos Demo (seed:demo)"**.
 2. **Activación de Votantes por Enlace (S1-08):**
-   - Entrar a la elección *"Elecciones Rectorales 2026"* $\rightarrow$ Pestaña **"Padrón Electoral"** (`/elections/:id/voters`).
+   - Entrar a la elección *"Elecciones Generales Universitarias 2026"* $\rightarrow$ Pestaña **"Padrón Electoral"** (`/elections/:id/voters`).
    - Ir a la sub-pestaña **"Enlaces de Registro (S1-08)"**, crear un enlace o copiar un enlace existente (`/register/:token`).
-   - Abrir el enlace en una ventana de incógnito, ingresar el CI de un votante importado (ej. `CI-EST-001`), verificar la emisión de su Certificado Digital de Registro y constatar que su estado cambia a `ACTIVE`.
+   - Abrir el enlace en una ventana de incógnito, ingresar el CI de un votante importado o invitado (ej. `CI-8001002` o `CI-8001008`), verificar la emisión de su Certificado Digital de Registro y constatar que su estado cambia a `ACTIVE`.
 3. **Congelamiento de Padrón y Despacho de Credenciales (S1-09):**
    - En la pestaña de padrón, presionar **"Congelar Padrón (roll_hash)"** para sellar el censo electoral con hash determinista.
    - Ir a la sub-pestaña **"Credenciales Demo (S1-09)"** para inspeccionar las credenciales personales generadas (`VS-XXXX-XXXX-XXXX`).
    - Presionar **"Abrir Votación Ahora"** para cambiar el estado de la elección a `VOTING_OPEN`.
 4. **Cabina de Votación y Depósito Ciego (S1-09):**
    - Navegar a `/vote` en una ventana de incógnito.
-   - Ingresar el CI (ej. `CI-EST-001`) y el código de credencial copiado.
+   - Ingresar el CI (ej. `CI-8001001` o `CI-8001002`) y el código de credencial copiado.
    - Constatar la **Papeleta Automática** personalizada (cargos de Rector, Decano FICCT y Director de Carrera Informática).
    - Seleccionar candidatos (o Voto en Blanco / Voto Nulo) y presionar **"Confirmar y Depositar Voto Ciego"**.
    - Descargar el Recibo Criptográfico con el `receipt_hash` y verificar su presencia pública en el verificador de actas.
