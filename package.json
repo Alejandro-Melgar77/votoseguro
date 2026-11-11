@@ -1,0 +1,16 @@
+{
+  "name": "votoseguro-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VotoSeguro - Plataforma SaaS Multi-Institución de Votación Electrónica",
+  "scripts": {
+    "dev:web": "pnpm --filter @votoseguro/web dev",
+    "build:web": "pnpm --filter @votoseguro/web build",
+    "lint:web": "pnpm --filter @votoseguro/web lint",
+    "test:web": "pnpm --filter @votoseguro/web test",
+    "generate:api": "pnpm --filter @votoseguro/api-client generate"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

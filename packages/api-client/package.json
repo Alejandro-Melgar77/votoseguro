@@ -1,0 +1,15 @@
+{
+  "name": "@votoseguro/api-client",
+  "version": "1.0.0",
+  "description": "Cliente TypeScript y contratos de datos para VotoSeguro",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "generate": "openapi-typescript http://localhost:8000/openapi.json -o src/schema.d.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.4.0",
+    "typescript": "^5.5.4"
+  }
+}

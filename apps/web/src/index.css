@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-ballot-ivory-100 text-civic-navy-900 font-sans;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-title text-civic-navy-900;
+  }
+}

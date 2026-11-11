@@ -1,0 +1,61 @@
+"""
+Configuración central de VotoSeguro respaldada por Pydantic Settings
+"""
+from typing import List
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    # Entorno
+    ENVIRONMENT: str = Field(default="development")
+    DEBUG: bool = Field(default=True)
+    PROJECT_NAME: str = "VotoSeguro API"
+    VERSION: str = "1.0.0"
+
+    # Base de Datos
+    DATABASE_URL: str = Field(
+        default="postgresql+asyncpg://votoseguro:votoseguro_secret_2026@localhost:5432/votoseguro_db"
+    )
+    SYNC_DATABASE_URL: str = Field(
+        default="postgresql+psycopg://votoseguro:votoseguro_secret_2026@localhost:5432/votoseguro_db"
+    )
+
+    # Seguridad Criptográfica
+    SECRET_KEY: str = Field(
+        default="insecure_dev_jwt_secret_key_minimum_32_characters_long_2026"
+    )
+    NULLIFIER_SECRET: str = Field(
+        default="insecure_dev_nullifier_secret_key_minimum_32_chars_2026"
+    )
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 horas
+
+    # Usuario Superadministrador inicial (PLATFORM_ADMIN)
+    PLATFORM_ADMIN_EMAIL: str = "admin@votoseguro.org"
+    PLATFORM_ADMIN_PASSWORD: str = "AdminPlatform2026!"
+
+    # Scheduler autónomo
+    RUN_EMBEDDED_SCHEDULER: bool = True
+    SCHEDULER_INTERVAL_SECONDS: int = 10
+
+    # CORS
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,https://votoseguro.pages.dev"
+
+    @property
+    def cors_origins_list(self) -> List[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
+    # Feature flags para IA (Sprint 1: deshabilitadas en modo degradado)
+    AI_LOCAL_ENABLED: bool = False
+    AI_EXTERNAL_ENABLED: bool = False
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore",
+    )
+
+
+settings = Settings()

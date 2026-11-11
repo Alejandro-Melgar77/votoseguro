@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: votoseguro-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-votoseguro}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-votoseguro_secret_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-votoseguro_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-votoseguro} -d ${POSTGRES_DB:-votoseguro_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: votoseguro-api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-votoseguro}:${POSTGRES_PASSWORD:-votoseguro_secret_2026}@postgres:5432/${POSTGRES_DB:-votoseguro_db}
+      SYNC_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-votoseguro}:${POSTGRES_PASSWORD:-votoseguro_secret_2026}@postgres:5432/${POSTGRES_DB:-votoseguro_db}
+      ENVIRONMENT: development
+      DEBUG: "true"
+      SECRET_KEY: ${SECRET_KEY:-insecure_dev_jwt_secret_key_minimum_32_characters_long_2026}
+      NULLIFIER_SECRET: ${NULLIFIER_SECRET:-insecure_dev_nullifier_secret_key_minimum_32_chars_2026}
+      RUN_EMBEDDED_SCHEDULER: "true"
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-admin@votoseguro.org}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-AdminPlatform2026!}
+      CORS_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/api:/app
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  scheduler:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: votoseguro-scheduler
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-votoseguro}:${POSTGRES_PASSWORD:-votoseguro_secret_2026}@postgres:5432/${POSTGRES_DB:-votoseguro_db}
+      ENVIRONMENT: development
+      SECRET_KEY: ${SECRET_KEY:-insecure_dev_jwt_secret_key_minimum_32_characters_long_2026}
+      NULLIFIER_SECRET: ${NULLIFIER_SECRET:-insecure_dev_nullifier_secret_key_minimum_32_chars_2026}
+    volumes:
+      - ./apps/api:/app
+    command: python -m app.modules.scheduler.worker
+
+  web:
+    image: node:20-alpine
+    container_name: votoseguro-web
+    working_dir: /app
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api/v1
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+
+  mailpit:
+    image: axllent/mailpit:v1.18
+    container_name: votoseguro-mailpit
+    restart: always
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # UI
+    environment:
+      MP_MAX_MESSAGES: 500
+
+volumes:
+  postgres_data:
