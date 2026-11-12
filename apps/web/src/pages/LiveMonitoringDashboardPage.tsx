@@ -16,8 +16,9 @@ import {
 } from 'lucide-react';
 import { InstitutionalShell } from '@/components/layout/InstitutionalShell';
 import { CryptographicHashBadge } from '@/components/electoral/CryptographicHashBadge';
+import { ElectoralFaqAssistantWidget } from '@/components/electoral/ElectoralFaqAssistantWidget';
 import { api, ApiError } from '@/lib/api';
-import type { LiveDashboardSnapshot } from '@votoseguro/api-client';
+import type { LiveDashboardSnapshot, AnomalyScanResponse } from '@votoseguro/api-client';
 
 export const LiveMonitoringDashboardPage: React.FC = () => {
   const { electionId } = useParams<{ electionId: string }>();
@@ -26,9 +27,27 @@ export const LiveMonitoringDashboardPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [wsConnected, setWsConnected] = useState<boolean>(false);
   const [downloadingExport, setDownloadingExport] = useState<string | null>(null);
+  const [anomaliesScan, setAnomaliesScan] = useState<AnomalyScanResponse | null>(null);
+  const [scanningAnomalies, setScanningAnomalies] = useState<boolean>(false);
+  const [simulateIfClean, setSimulateIfClean] = useState<boolean>(true);
 
   const wsRef = useRef<WebSocket | null>(null);
   const pollTimerRef = useRef<number | null>(null);
+
+  const handleScanAnomalies = async () => {
+    if (!electionId) return;
+    setScanningAnomalies(true);
+    try {
+      const res = await api.post<AnomalyScanResponse>(
+        `/ai/anomalies/${electionId}/explain?simulate_if_clean=${simulateIfClean}`
+      );
+      setAnomaliesScan(res);
+    } catch (err: any) {
+      console.error('Error analizando anomalías:', err);
+    } finally {
+      setScanningAnomalies(false);
+    }
+  };
 
   const fetchMetrics = async () => {
     if (!electionId) return;
@@ -480,7 +499,156 @@ export const LiveMonitoringDashboardPage: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
+
+        {/* IA-L1: Monitor de Anomalías Estadísticas y Explicación Asistida */}
+        <div className="bg-white rounded-xl shadow-card border border-stone-200 overflow-hidden">
+            <div className="p-6 border-b border-stone-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base font-bold text-civic-navy-900 font-title flex items-center space-x-2">
+                  <Activity className="w-4 h-4 text-emerald-600" />
+                  <span>Monitor de Anomalías Estadísticas y Explicación Asistida (IA-L1)</span>
+                </h2>
+                <p className="text-xs text-stone-500 font-sans mt-0.5">
+                  Análisis asistido con LiquidAI LFM3-1.7B sobre z-scores, picos horarios y asimetría de activación.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-1.5 text-xs text-stone-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={simulateIfClean}
+                    onChange={(e) => setSimulateIfClean(e.target.checked)}
+                    className="rounded border-stone-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>Simulación si no hay anomalías</span>
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handleScanAnomalies}
+                  disabled={scanningAnomalies}
+                  className="px-4 py-2 bg-[#0B132B] hover:bg-[#162550] text-white text-xs font-semibold rounded-lg flex items-center gap-2 shadow-sm transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${scanningAnomalies ? 'animate-spin' : ''}`} />
+                  <span>{scanningAnomalies ? 'Analizando con LFM3...' : 'Analizar Anomalías'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {!anomaliesScan && (
+                <div className="text-center py-6 text-xs text-stone-400">
+                  Haga clic en "Analizar Anomalías" para evaluar la distribución estadística de la elección con IA Local.
+                </div>
+              )}
+
+              {anomaliesScan && anomaliesScan.anomalies.length === 0 && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                  <div>
+                    <strong>Distribución de Participación Estable:</strong> No se detectaron anomalías estadísticas
+                    (z-scores |z| &lt; 1.8 y flujo horario regular).
+                  </div>
+                </div>
+              )}
+
+              {anomaliesScan && anomaliesScan.anomalies.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-xs text-stone-500">
+                    <span>
+                      Anomalías detectadas: <strong>{anomaliesScan.anomalies_found_count}</strong>
+                      {anomaliesScan.is_simulation && ' (Incluye escenario de prueba)'}
+                    </span>
+                    <span className="font-mono text-[11px]">
+                      Escaneado: {new Date(anomaliesScan.scanned_at_utc).toLocaleTimeString()}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    {anomaliesScan.anomalies.map((anom, aIdx) => (
+                      <div
+                        key={aIdx}
+                        className={`p-5 rounded-xl border transition-all ${
+                          anom.severity === 'HIGH'
+                            ? 'bg-red-50/40 border-red-200'
+                            : anom.severity === 'MEDIUM'
+                            ? 'bg-amber-50/40 border-amber-200'
+                            : 'bg-blue-50/40 border-blue-200'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200/60 pb-3 mb-3">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                anom.severity === 'HIGH'
+                                  ? 'bg-red-100 text-red-800'
+                                  : anom.severity === 'MEDIUM'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}
+                            >
+                              Severidad: {anom.severity}
+                            </span>
+                            <span className="font-mono font-bold text-xs text-civic-navy-900">
+                              {anom.code}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-[11px]">
+                            <span className="px-2 py-0.5 rounded bg-stone-100 text-stone-700 font-mono">
+                              Fuente: {anom.ai_source}
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">
+                              Decisión Humana Requerida
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Explicación en Español */}
+                        <div className="text-xs text-stone-800 leading-relaxed mb-3">
+                          <strong className="block text-stone-900 mb-1">Explicación Asistida (LFM3-1.7B):</strong>
+                          {anom.explanation_es}
+                        </div>
+
+                        {/* Métricas Agregadas */}
+                        <div className="bg-white/80 p-3 rounded-lg border border-stone-200/80 mb-3 text-xs grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {Object.entries(anom.metrics_summary).map(([k, val]) => (
+                            <div key={k}>
+                              <span className="text-[10px] text-stone-500 uppercase block font-semibold">
+                                {k.replace(/_/g, ' ')}
+                              </span>
+                              <span className="font-mono text-stone-800 font-bold truncate block">
+                                {typeof val === 'number' ? val : String(val)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Verificaciones recomendadas */}
+                        {anom.recommended_checks.length > 0 && (
+                          <div className="text-xs space-y-1">
+                            <span className="font-semibold text-stone-700 block">
+                              Verificaciones sugeridas para el Administrador:
+                            </span>
+                            <ul className="list-disc list-inside text-stone-600 space-y-0.5 pl-1">
+                              {anom.recommended_checks.map((chk, cIdx) => (
+                                <li key={cIdx}>{chk}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Widget Asistente Electoral Oficial RAG */}
+      <ElectoralFaqAssistantWidget electionId={electionId} />
     </InstitutionalShell>
   );
 };

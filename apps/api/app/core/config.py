@@ -46,9 +46,12 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> List[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
-    # Feature flags para IA (Sprint 1: deshabilitadas en modo degradado)
-    AI_LOCAL_ENABLED: bool = False
+    # Feature flags y configuración para IA Local (Sprint 2)
+    AI_LOCAL_ENABLED: bool = True
     AI_EXTERNAL_ENABLED: bool = False
+    LLM_BASE_URL: str = "http://llm:8080/v1"
+    LLM_MODEL_NAME: str = "LiquidAI/LFM3-1.7B-Q4_K_M"
+    LLM_TIMEOUT_SECONDS: float = 8.0
 
     # Inspector de Credenciales de Demostración (Sprint 1)
     DEMO_CREDENTIAL_INSPECTOR_ENABLED: bool = True

@@ -52,6 +52,10 @@ from app.db.models.audit import (
 from app.db.models.notification import (
     NotificationOutbox,
 )
+from app.db.models.ai import (
+    AnomalyAlert,
+    KbDocumentChunk,
+)
 
 __all__ = [
     "Base",
@@ -89,4 +93,6 @@ __all__ = [
     "AuditLog",
     "AiCallLog",
     "NotificationOutbox",
+    "AnomalyAlert",
+    "KbDocumentChunk",
 ]

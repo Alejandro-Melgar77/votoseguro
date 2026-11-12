@@ -39,6 +39,9 @@ services:
       PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-admin@votoseguro.org}
       PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-AdminPlatform2026!}
       CORS_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
+      AI_LOCAL_ENABLED: "true"
+      LLM_BASE_URL: http://llm:8080/v1
+      LLM_MODEL_NAME: LiquidAI/LFM3-1.7B-Q4_K_M
     ports:
       - "8000:8000"
     volumes:
@@ -88,5 +91,17 @@ services:
     environment:
       MP_MAX_MESSAGES: 500
 
+  llm:
+    build:
+      context: ./services/llm
+      dockerfile: Dockerfile
+    container_name: votoseguro-llm
+    restart: unless-stopped
+    volumes:
+      - llm_models:/models
+    expose:
+      - "8080"
+
 volumes:
   postgres_data:
+  llm_models:

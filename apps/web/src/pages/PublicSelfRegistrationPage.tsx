@@ -13,6 +13,8 @@ import {
   FileCheck2,
 } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
+import { IdCardOcrScannerModal } from '@/components/electoral/IdCardOcrScannerModal';
+import { ElectoralFaqAssistantWidget } from '@/components/electoral/ElectoralFaqAssistantWidget';
 import type {
   SelfRegistrationInfoResponse,
   SelfRegistrationRequest,
@@ -37,6 +39,7 @@ export const PublicSelfRegistrationPage: React.FC = () => {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<SelfRegistrationResponse | null>(null);
+  const [showOcrModal, setShowOcrModal] = useState<boolean>(false);
 
   const fetchInfo = async () => {
     if (!electionId) return;
@@ -236,9 +239,18 @@ export const PublicSelfRegistrationPage: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                     <div>
-                      <label className="block font-bold text-stone-700 uppercase font-mono text-[11px] mb-1">
-                        Cédula de Identidad / Documento *
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="font-bold text-stone-700 uppercase font-mono text-[11px]">
+                          Cédula de Identidad / Documento *
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowOcrModal(true)}
+                          className="text-[11px] text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <span>📷</span> Escanear OCR
+                        </button>
+                      </div>
                       <input
                         type="text"
                         required
@@ -347,6 +359,22 @@ export const PublicSelfRegistrationPage: React.FC = () => {
       <footer className="bg-white border-t border-stone-200 py-4 text-center text-xs text-stone-500 font-mono">
         VotoSeguro v2.0 • Autoinscripción Electoral con Aprobación Institucional
       </footer>
+
+      {/* Modal OCR de Cédula */}
+      <IdCardOcrScannerModal
+        isOpen={showOcrModal}
+        onClose={() => setShowOcrModal(false)}
+        electionId={electionId}
+        onConfirm={(data) => {
+          setDocumentId(data.ci);
+          if (data.nombres || data.apellidos) {
+            setFullName(`${data.nombres} ${data.apellidos}`.trim());
+          }
+        }}
+      />
+
+      {/* Asistente Electoral Oficial RAG */}
+      <ElectoralFaqAssistantWidget electionId={electionId} />
     </div>
   );
 };

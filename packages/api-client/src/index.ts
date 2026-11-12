@@ -507,6 +507,10 @@ export interface ImportIssue {
   resolved_by?: string | null;
   resolved_at?: string | null;
   details: Record<string, unknown>;
+  ai_verdict?: string | null;
+  ai_reason?: string | null;
+  ai_model?: string | null;
+  ai_evaluated_at?: string | null;
 }
 
 export interface DuplicateResolveRequest {
@@ -570,6 +574,7 @@ export interface PublicActivationResponse {
   node_path: string;
   activated_at: string;
   status: string;
+  credential_code?: string;
 }
 
 export interface RollHashFreezeResponse {
@@ -864,6 +869,7 @@ export interface MerkleInclusionProofResponse {
   total_active_voters: number;
   merkle_root: string;
   proof: MerkleProofStep[];
+  is_frozen?: boolean;
 }
 
 export interface MerkleVerifyRequest {
@@ -876,6 +882,8 @@ export interface MerkleVerifyResponse {
   valid: boolean;
   computed_root: string;
   expected_root: string;
+  is_valid?: boolean;
+  calculated_root?: string;
 }
 
 export interface RegistrationMetricsDTO {
@@ -1003,5 +1011,118 @@ export interface PaillierBenchmarkResponse {
     is_exact_match: boolean;
   }>;
 }
+
+// ==========================================
+// Contratos de IA Local (LFM3-1.7B) - Sprint 2
+// ==========================================
+
+export interface AnomalyExplanationResponse {
+  anomaly_id: string;
+  code: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  metrics_summary: Record<string, any>;
+  explanation_es: string;
+  recommended_checks: string[];
+  requires_human_decision: boolean;
+  ai_source: 'LFM3-1.7B' | 'DETERMINISTIC_FALLBACK' | string;
+}
+
+export interface AnomalyScanResponse {
+  election_id: string;
+  election_status: string;
+  total_active_voters: number;
+  total_ballots_cast: number;
+  participation_rate_pct: number;
+  anomalies_found_count: number;
+  anomalies: AnomalyExplanationResponse[];
+  scanned_at_utc: string;
+  is_simulation: boolean;
+}
+
+export interface DuplicateAdjudicationSuggestion {
+  issue_id?: string;
+  verdict: 'mismo' | 'distinto' | 'dudoso';
+  confidence_label: 'ALTA' | 'MEDIA' | 'BAJA';
+  short_reason: string;
+  human_action_required: boolean;
+  ai_source: 'LFM3-1.7B' | 'DETERMINISTIC_FALLBACK' | string;
+}
+
+export interface BatchDuplicateAdjudicationResponse {
+  batch_id: string;
+  total_evaluated: number;
+  suggestions: DuplicateAdjudicationSuggestion[];
+  adjudicated_at: string;
+}
+
+export interface IdCardExtractionRequest {
+  raw_ocr_text: string;
+  election_id?: string | null;
+}
+
+export interface IdCardExtractionResponse {
+  ci: string;
+  nombres: string;
+  apellidos: string;
+  fecha_nacimiento: string | null;
+  regex_valid: boolean;
+  confidence_note: string;
+  requires_voter_confirmation: boolean;
+  ai_source: 'LFM3-1.7B' | 'DETERMINISTIC_FALLBACK' | string;
+}
+
+export interface DocumentCitation {
+  doc_id: string;
+  title: string;
+  excerpt: string;
+  section?: string;
+}
+
+export interface RagAssistantRequest {
+  question: string;
+  context_role?: 'VOTER' | 'ADMIN' | 'PUBLIC';
+  election_id?: string | null;
+}
+
+export type AssistantQuestionRequest = RagAssistantRequest;
+
+export interface RagAssistantResponse {
+  question: string;
+  answer: string;
+  answered_from_docs: boolean;
+  citations: DocumentCitation[];
+  escalate_to_support: boolean;
+  ai_source: 'LFM3-1.7B' | 'DETERMINISTIC_FALLBACK' | string;
+  latency_ms?: number;
+  sources?: DocumentCitation[];
+  suggests_support?: boolean;
+  source?: string;
+}
+
+export type AssistantAnswerResponse = RagAssistantResponse;
+
+export type VoiceBallotAction =
+  | 'READ_BALLOT'
+  | 'NEXT_CONTEST'
+  | 'PREV_CONTEST'
+  | 'PREVIOUS_CONTEST'
+  | 'SELECT_CANDIDATE'
+  | 'SELECT_BLANK'
+  | 'SELECT_NULL'
+  | 'READ_SUMMARY'
+  | 'PREPARE_CAST'
+  | 'CONFIRM_CAST'
+  | 'CANCEL'
+  | 'CANCEL_SELECTION'
+  | 'HELP'
+  | 'UNKNOWN';
+
+export interface VoiceBallotCommand {
+  action: VoiceBallotAction;
+  candidateNumber?: number;
+  rawTranscript: string;
+  feedbackMessage: string;
+}
+
 
 

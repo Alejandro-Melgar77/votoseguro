@@ -48,6 +48,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
 import { InstitutionalShell } from '@/components/layout/InstitutionalShell';
 import { DuplicateAdjudicationDrawer } from '@/components/electoral/DuplicateAdjudicationDrawer';
+import { ElectoralFaqAssistantWidget } from '@/components/electoral/ElectoralFaqAssistantWidget';
 import { formatElectoralDateTime } from '@/lib/timezone';
 
 export const VoterRollRegistrationPanelPage: React.FC = () => {
@@ -58,6 +59,7 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
   const [summary, setSummary] = useState<RegistrationSummaryResponse | null>(null);
   const [groups, setGroups] = useState<VoterGroup[]>([]);
   const [nodes, setNodes] = useState<UnitNode[]>([]);
+  const [aiBatchLoading, setAiBatchLoading] = useState(false);
   const [voters, setVoters] = useState<Voter[]>([]);
   const [batches, setBatches] = useState<ImportBatch[]>([]);
   const [pendingDuplicates, setPendingDuplicates] = useState<ImportIssue[]>([]);
@@ -1299,14 +1301,38 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
               </div>
               <div className="flex-1">
                 <h3 className="font-title text-base font-bold text-civic-navy-900">
-                  Bandeja de Arbitraje de Duplicados (IA-L2a)
+                  Bandeja de Arbitraje de Duplicados (IA-L2a / IA-L2b)
                 </h3>
                 <p className="text-xs text-stone-600 mt-1">
-                  El detector asistido por similitud trigram (<code className="font-mono">pg_trgm</code>) y distancia Levenshtein ha
-                  marcado registros con alta probabilidad de homonimia o duplicidad en el padrón. El tribunal electoral debe emitir
-                  un dictamen soberano e irrevocable para cada caso.
+                  El detector asistido por similitud trigram (<code className="font-mono">pg_trgm</code>) ha marcado
+                  registros con alta probabilidad de homonimia. Puede solicitar una segunda opinión con LiquidAI LFM3-1.7B
+                  para asistir la decisión soberana del tribunal electoral.
                 </p>
               </div>
+              {pendingDuplicates.length > 0 && isAdminGeneral && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setAiBatchLoading(true);
+                    try {
+                      const batchIds = Array.from(new Set(pendingDuplicates.map((d) => d.batch_id)));
+                      for (const bId of batchIds) {
+                        await api.post(`/ai/duplicates/${bId}/adjudicate`);
+                      }
+                      await Promise.all([loadBaseData(), loadVotersList()]);
+                    } catch (err: any) {
+                      console.error('Error adjudicando duplicados con IA:', err);
+                    } finally {
+                      setAiBatchLoading(false);
+                    }
+                  }}
+                  disabled={aiBatchLoading}
+                  className="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors disabled:opacity-50"
+                >
+                  <span>{aiBatchLoading ? '⏳' : '🤖'}</span>
+                  <span>{aiBatchLoading ? 'Evaluando con IA...' : 'Solicitar Segunda Opinión IA en Lote'}</span>
+                </button>
+              )}
             </div>
 
             <div className="bg-white border border-stone-300 rounded-xl overflow-hidden shadow-sm">
@@ -1361,6 +1387,28 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
                               </span>
                             </div>
                           </div>
+
+                          {issue.ai_verdict && (
+                            <div className="p-2.5 bg-indigo-50/80 border border-indigo-200 rounded-lg text-xs mt-2">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[11px] font-bold text-indigo-950 flex items-center gap-1">
+                                  <span>🤖</span> Segunda Opinión IA ({issue.ai_model || 'LFM3-1.7B'}):
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    issue.ai_verdict === 'mismo'
+                                      ? 'bg-red-100 text-red-800'
+                                      : issue.ai_verdict === 'distinto'
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : 'bg-amber-100 text-amber-800'
+                                  }`}
+                                >
+                                  {issue.ai_verdict.toUpperCase()}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-gray-700">{issue.ai_reason}</p>
+                            </div>
+                          )}
                         </div>
 
                         <div className="shrink-0 flex items-center">
@@ -2317,7 +2365,7 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
           </div>
         )}
 
-        {/* DRAWER: ARBITRAJE DE DUPLICADOS (IA-L2a) */}
+        {/* DRAWER: ARBITRAJE DE DUPLICADOS (IA-L2a / IA-L2b) */}
         {selectedDuplicateIssue && (
           <DuplicateAdjudicationDrawer
             electionId={electionId || ''}
@@ -2329,6 +2377,9 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
           />
         )}
       </div>
+
+      {/* Widget Asistente Electoral Oficial RAG */}
+      <ElectoralFaqAssistantWidget electionId={electionId} />
     </InstitutionalShell>
   );
 };

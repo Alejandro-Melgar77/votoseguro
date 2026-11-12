@@ -18,6 +18,8 @@ import {
 import { PublicRegistrationInfo, PublicActivationResponse } from '@votoseguro/api-client';
 import { api } from '@/lib/api';
 import { formatElectoralDateTime } from '@/lib/timezone';
+import { IdCardOcrScannerModal } from '@/components/electoral/IdCardOcrScannerModal';
+import { ElectoralFaqAssistantWidget } from '@/components/electoral/ElectoralFaqAssistantWidget';
 
 export const PublicVoterRegistrationPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
@@ -32,6 +34,7 @@ export const PublicVoterRegistrationPage: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showOcrModal, setShowOcrModal] = useState(false);
 
   // Certificado de Activación
   const [activationResult, setActivationResult] = useState<PublicActivationResponse | null>(null);
@@ -188,9 +191,18 @@ export const PublicVoterRegistrationPage: React.FC = () => {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Cédula de Identidad (CI / DNI) <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-stone-700">
+                      Cédula de Identidad (CI / DNI) <span className="text-red-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowOcrModal(true)}
+                      className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1 transition-colors"
+                    >
+                      <span>📷</span> Escanear Cédula (OCR Local + IA-L3)
+                    </button>
+                  </div>
                   <input
                     type="text"
                     required
@@ -344,9 +356,22 @@ export const PublicVoterRegistrationPage: React.FC = () => {
 
       {/* Pie de Página */}
       <footer className="bg-white border-t border-stone-200 py-4 text-center text-xs text-stone-500">
-        <p>VotoSeguro v1.0 — Plataforma Soberana de Sufragio Electrónico Multi-inquilino</p>
+        <p>VotoSeguro v2.0 — Plataforma Soberana de Sufragio Electrónico Multi-inquilino</p>
         <p className="text-2xs text-stone-400 mt-0.5">Diseñado con rigor criptográfico e integridad auditable</p>
       </footer>
+
+      {/* Modal OCR de Cédula */}
+      <IdCardOcrScannerModal
+        isOpen={showOcrModal}
+        onClose={() => setShowOcrModal(false)}
+        electionId={linkInfo?.election_id}
+        onConfirm={(data) => {
+          setDocumentId(data.ci);
+        }}
+      />
+
+      {/* Asistente Electoral Oficial RAG */}
+      <ElectoralFaqAssistantWidget electionId={linkInfo?.election_id} />
     </div>
   );
 };

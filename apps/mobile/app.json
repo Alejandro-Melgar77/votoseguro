@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "VotoSeguro",
+    "slug": "votoseguro-mobile",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "votoseguro",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0B132B"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.votoseguro.mobile"
+    },
+    "android": {
+      "package": "org.votoseguro.mobile"
+    }
+  }
+}

@@ -29,6 +29,9 @@ import {
 } from '@votoseguro/api-client';
 import { api } from '@/lib/api';
 import { formatElectoralDateTime } from '@/lib/timezone';
+import { IdCardOcrScannerModal } from '@/components/electoral/IdCardOcrScannerModal';
+import { VoiceAccessibleBallotController } from '@/components/electoral/VoiceAccessibleBallotController';
+import { ElectoralFaqAssistantWidget } from '@/components/electoral/ElectoralFaqAssistantWidget';
 
 export const VoterBallotBoothPage: React.FC = () => {
   // Estado del flujo: 'login' | 'ballot' | 'review' | 'receipt'
@@ -39,6 +42,8 @@ export const VoterBallotBoothPage: React.FC = () => {
   const [credentialCode, setCredentialCode] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [showOcrModal, setShowOcrModal] = useState(false);
+  const [activeContestIndex, setActiveContestIndex] = useState(0);
 
   // Sesión y Papeleta
   const [voterToken, setVoterToken] = useState<string | null>(null);
@@ -272,9 +277,18 @@ export const VoterBallotBoothPage: React.FC = () => {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Documento de Identidad (CI / DNI)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-stone-700">
+                    Documento de Identidad (CI / DNI)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowOcrModal(true)}
+                    className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1 transition-colors"
+                  >
+                    <span>📷</span> Escanear OCR
+                  </button>
+                </div>
                 <input
                   type="text"
                   required
@@ -369,6 +383,68 @@ export const VoterBallotBoothPage: React.FC = () => {
                 {Object.keys(selections).length} de {ballotData.contests.length} cargos completados
               </span>
             </div>
+
+            {/* IA-L4: Barra de Accesibilidad por Voz Local */}
+            {ballotData.contests.length > 0 && (
+              <VoiceAccessibleBallotController
+                activeContestName={ballotData.contests[activeContestIndex]?.contest_name || 'Cargo'}
+                candidates={
+                  ballotData.contests[activeContestIndex]?.candidates.map((c) => ({
+                    id: c.id,
+                    name: c.name,
+                    party: c.party_or_front,
+                  })) || []
+                }
+                selectedChoiceType={
+                  selections[ballotData.contests[activeContestIndex]?.contest_id]?.choice_type || null
+                }
+                selectedCandidateId={
+                  selections[ballotData.contests[activeContestIndex]?.contest_id]?.candidate_id || null
+                }
+                contestIndex={activeContestIndex}
+                totalContests={ballotData.contests.length}
+                onSelectCandidate={(candId) => {
+                  const targetContest = ballotData.contests[activeContestIndex];
+                  const cand = targetContest?.candidates.find((c) => c.id === candId);
+                  if (targetContest && cand) {
+                    handleSelectCandidate(
+                      targetContest.contest_id,
+                      cand.id,
+                      cand.name,
+                      cand.party_or_front
+                    );
+                  }
+                }}
+                onSelectBlank={() => {
+                  const targetContest = ballotData.contests[activeContestIndex];
+                  if (targetContest) handleSelectBlank(targetContest.contest_id);
+                }}
+                onSelectNull={() => {
+                  const targetContest = ballotData.contests[activeContestIndex];
+                  if (targetContest) handleSelectNull(targetContest.contest_id);
+                }}
+                onNextContest={() => {
+                  if (activeContestIndex < ballotData.contests.length - 1) {
+                    setActiveContestIndex(activeContestIndex + 1);
+                  }
+                }}
+                onPrevContest={() => {
+                  if (activeContestIndex > 0) {
+                    setActiveContestIndex(activeContestIndex - 1);
+                  }
+                }}
+                onPrepareCast={() => {
+                  setShowReviewModal(true);
+                }}
+                onConfirmCast={() => {
+                  if (allContestsSelected) {
+                    handleConfirmAndCast();
+                  } else {
+                    setShowReviewModal(true);
+                  }
+                }}
+              />
+            )}
 
             {/* Lista de Cargos Electorales Resueltos */}
             <div className="space-y-6">
@@ -722,8 +798,20 @@ export const VoterBallotBoothPage: React.FC = () => {
 
       {/* Pie de Página */}
       <footer className="bg-white border-t border-stone-200 py-4 text-center text-xs text-stone-500">
-        <p>VotoSeguro v1.0 — Soberanía Ciudadana y Transparencia Electoral Criptográfica</p>
+        <p>VotoSeguro v2.0 — Soberanía Ciudadana y Transparencia Electoral Criptográfica</p>
       </footer>
+
+      {/* Modal OCR de Cédula */}
+      <IdCardOcrScannerModal
+        isOpen={showOcrModal}
+        onClose={() => setShowOcrModal(false)}
+        onConfirm={(data) => {
+          setDocumentId(data.ci);
+        }}
+      />
+
+      {/* Asistente Electoral Oficial RAG (Se oculta en step === 'ballot' - Invariante 7.3) */}
+      <ElectoralFaqAssistantWidget isVotingStep={step === 'ballot'} />
     </div>
   );
 };

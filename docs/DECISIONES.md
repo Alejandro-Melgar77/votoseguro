@@ -109,3 +109,73 @@
   1. Se implementa `seed_demo.py`, ejecutable por CLI (`python -m app.db.seed_demo`) o mediante el endpoint protegido de `PLATFORM_ADMIN` (`POST /api/v1/platform/seed-demo`).
   2. Crea de forma completamente idempotente la **Universidad EL GRAN ESTUDIO** (con 36 votantes, par de homónimos `José Rodríguez` vs `Jose Rodriguez S.`, 4 cargos, enlaces de registro y credenciales) y las **Elecciones Nacionales Ecuador** (4 niveles territoriales y binomio presidencial).
   3. Habilita el inspector de credenciales (`DEMO_CREDENTIAL_INSPECTOR_ENABLED=True`) para permitir la prueba fluida de la cabina de votación sin requerir el envío forzoso de correos externos.
+
+
+## ADR 013: Cadenas de Hashes en Votos y Bitácora de Auditoría (Invariantes #19 y #20)
+- **Fecha:** 2026-11-11
+- **Estado:** Aceptado
+- **Contexto:** La base de datos relacional debe proporcionar garantías matemáticas de no repudio y detección de manipulación física en SQL.
+- **Decisión:**
+  1. Cada registro en `vote` incorpora `chain_index`, `prev_hash` y `vote_hash = SHA-256(chain_index || prev_hash || nullifier || choice_type || candidate_id || minute_timestamp)`.
+  2. La cadena inicia con un bloque génesis único por elección ligado a su `config_hash`.
+  3. Durante la emisión del voto, se ejecuta un bloqueo atómico `FOR UPDATE` sobre `election` para serializar la cadena.
+  4. La bitácora `audit_log` implementa idéntico encadenamiento con triggers `trg_audit_log_immutable`.
+  5. Los endpoints `/integrity/votes` y `/integrity/audit` permiten auditar de punta a punta la integridad criptográfica.
+
+## ADR 014: Árbol de Merkle para Pruebas Criptográficas de Inclusión en el Padrón (Invariante #18)
+- **Fecha:** 2026-11-11
+- **Estado:** Aceptado
+- **Contexto:** Los votantes requieren comprobar que su registro forma parte del censo electoral oficial sin que el tribunal tenga que publicar la lista completa con los datos de todos los empadronados.
+- **Decisión:**
+  1. Al pasar a `REGISTRATION_CLOSED`, se ordenan canónicamente los votantes activos y se construye un Árbol de Merkle binario balanceado en `app/crypto/merkle.py`.
+  2. La raíz `merkle_root` se estampa en la entidad `election`.
+  3. El endpoint `GET /elections/{id}/merkle/proof/{ci}` calcula el camino de hashes hermanos de orden $O(\log_2 N)$.
+  4. El endpoint público `POST /elections/{id}/merkle/verify` permite a cualquier ciudadano reconstruir matemáticamente la raíz demostrando su inclusión en el padrón fidedigno.
+
+## ADR 015: Arquitectura de Inferencia Local LFM3-1.7B con Fallback Determinista y Zero-PII (Invariante #14)
+- **Fecha:** 2026-11-11
+- **Estado:** Aceptado
+- **Contexto:** Los modelos de IA no deben depender de proveedores externos privativos en elecciones soberanas ni filtrar datos de votantes, y el sistema no debe fallar con HTTP 500 si el motor LLM sufre sobrecarga o no está desplegado en entornos livianos (como Render Free).
+- **Decisión:**
+  1. Se configura un microservicio Docker con `LiquidAI/LFM3-1.7B` cuantizado en GGUF Q4_K_M con `llama-server`.
+  2. El cliente `LocalLlmEngine` utiliza HTTP asíncrono con timeout de 8.0 segundos, temperatura de 0.05 y validación JSON con esquemas estrictos de Pydantic v2.
+  3. Salvaguarda de Modo Degradado: Si el LLM está apagado o responde fuera de tiempo, se dispara un fallback determinista puro devolviendo un resultado analítico válido con el metadato `source: DETERMINISTIC_FALLBACK`.
+  4. Salvaguarda de Privacidad: Se invoca `log_ai_call()` registrando en `ai_call_log` y en la cadena de auditoría la llamada libre de identificadores personales (CIs, nombres, votos).
+
+## ADR 016: Extracción OCR de Cédula sin Persistencia de Imágenes (Invariante #15)
+- **Fecha:** 2026-11-11
+- **Estado:** Aceptado
+- **Contexto:** Almacenar fotografías de documentos de identidad en el servidor viola normativas de protección de datos personales y expone al sistema a riesgos de filtración masiva de biometría.
+- **Decisión:**
+  1. El escaneo OCR de la cédula se procesa localmente en el navegador o en la aplicación móvil.
+  2. Se extrae el texto bruto y se transmite al endpoint `POST /api/v1/ai/id-card/extract`.
+  3. El backend limpia cualquier encabezado data-URI en memoria y extrae `{ci, nombres, apellidos, fecha_nacimiento}` con regex y validación de seguridad.
+  4. En ningún momento se escribe la imagen en disco, base de datos ni almacenamiento en la nube.
+
+## ADR 017: Accesibilidad por Voz Determinista 100% On-Device (Sección 7.3)
+- **Fecha:** 2026-11-11
+- **Estado:** Aceptado
+- **Contexto:** Los votantes con discapacidad visual o dificultades motoras requieren votar de manera autónoma sin que sus instrucciones hablen por la red revelando el sentido de su sufragio.
+- **Decisión:**
+  1. La síntesis de voz (TTS) y el reconocimiento de comandos (STT) se interpretan en el dispositivo cliente mediante una gramática determinista pura (`voice-ballot-grammar.ts`).
+  2. No se envía ningún paquete de audio, transcripción o comando intermedio a través de la red hacia el backend ni hacia ningún servicio de IA generativa.
+  3. El voto se envía únicamente en el instante final al confirmar la emisión mediante la misma API ciega atómica `POST /ballot/cast`.
+
+## ADR 018: RAG Oficial Neutral para Asistente Electoral con Desmontaje en Cabina (IA-L5)
+- **Fecha:** 2026-11-11
+- **Estado:** Aceptado
+- **Contexto:** Un chatbot electoral puede inducir sesgos o alucinar reglas que confundan al votante, o distraerlo durante el momento del sufragio.
+- **Decisión:**
+  1. El asistente `POST /api/v1/ai/assistant/ask` se ancla a una base de conocimiento curada de 12 documentos oficiales (`DOC-01` a `DOC-12`).
+  2. Se aplica un filtro estricto de neutralidad política que rechaza preguntas de preferencia partidaria o candidaturas.
+  3. Si la base no cubre la consulta, responde con honestidad "No dispongo de esa información" y deriva a soporte humano.
+  4. En la cabina de votación Web y Móvil, el widget del asistente se desmonta obligatoriamente durante el paso de selección de candidatos.
+
+## ADR 019: Aplicación Móvil en React Native + Expo con Deep Linking Universal (S2-01)
+- **Fecha:** 2026-11-11
+- **Estado:** Aceptado
+- **Contexto:** Los votantes requieren una experiencia móvil nativa en smartphones para activarse mediante enlaces en mensajes, escanear su cédula y votar de manera accesible.
+- **Decisión:**
+  1. Se implementa `apps/mobile` con React Native 0.74, Expo 51 y TypeScript consumiendo el paquete central `@votoseguro/api-client`.
+  2. Soporta el esquema de Deep Link `votoseguro://register/:token` y `votoseguro://receipt/:hash`.
+  3. Comparte exactamente los mismos contratos, lógica de negocio y endpoints `/api/v1` que el cliente web, garantizando paridad total de características y soberanía criptográfica.

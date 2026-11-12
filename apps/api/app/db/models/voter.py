@@ -161,6 +161,10 @@ class ImportIssue(Base):
     )
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    ai_verdict: Mapped[str | None] = mapped_column(String(32), nullable=True)  # mismo, distinto, dudoso
+    ai_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ai_model: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    ai_evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relaciones
     batch = relationship("ImportBatch", back_populates="issues")

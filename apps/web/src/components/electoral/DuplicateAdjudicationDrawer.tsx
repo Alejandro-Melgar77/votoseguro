@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ImportIssue } from '@votoseguro/api-client';
+import { ImportIssue, DuplicateAdjudicationSuggestion } from '@votoseguro/api-client';
 import { api } from '@/lib/api';
 
 interface DuplicateAdjudicationDrawerProps {
@@ -18,8 +18,28 @@ export const DuplicateAdjudicationDrawer: React.FC<DuplicateAdjudicationDrawerPr
   const [reason, setReason] = useState('Verificación manual con documento de identidad');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<DuplicateAdjudicationSuggestion | null>(null);
 
   if (!issue) return null;
+
+  const handleRequestAiOpinion = async () => {
+    setAiLoading(true);
+    setError(null);
+    try {
+      const res = await api.post<DuplicateAdjudicationSuggestion>(
+        `/ai/duplicates/issues/${issue.id}/adjudicate`
+      );
+      setAiSuggestion(res);
+      if (res.short_reason) {
+        setReason(`[Sugerencia IA]: ${res.short_reason}`);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error solicitando segunda opinión de IA.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleResolve = async (action: 'CONFIRM_DISTINCT' | 'BLOCK_NEW' | 'REMOVE_NEW') => {
     setError(null);
@@ -136,6 +156,54 @@ export const DuplicateAdjudicationDrawer: React.FC<DuplicateAdjudicationDrawerPr
                 Estado: <span className="font-semibold text-emerald-700">EN PADRÓN</span>
               </div>
             </div>
+          </div>
+
+          {/* IA-L2b: Segunda Opinión de IA Local */}
+          <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-200/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                <span>🤖</span> Segunda Opinión Asistida (IA-L2b)
+              </span>
+              <button
+                type="button"
+                onClick={handleRequestAiOpinion}
+                disabled={aiLoading}
+                className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
+              >
+                <span>{aiLoading ? '⏳' : '✨'}</span>
+                <span>{aiLoading ? 'Evaluando...' : 'Solicitar Segunda Opinión IA'}</span>
+              </button>
+            </div>
+
+            {aiSuggestion && (
+              <div className="p-3 bg-white rounded-lg border border-indigo-200 text-xs space-y-2 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-gray-500 uppercase">
+                    Veredicto Sugerido:
+                  </span>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] ${
+                      aiSuggestion.verdict === 'mismo'
+                        ? 'bg-red-100 text-red-800 border border-red-200'
+                        : aiSuggestion.verdict === 'distinto'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        : 'bg-amber-100 text-amber-800 border border-amber-200'
+                    }`}
+                  >
+                    {aiSuggestion.verdict.toUpperCase()} (Confianza: {aiSuggestion.confidence_label})
+                  </span>
+                </div>
+
+                <div className="text-gray-800 leading-relaxed text-[11px]">
+                  <strong>Motivo IA:</strong> {aiSuggestion.short_reason}
+                </div>
+
+                <div className="text-[10px] text-gray-400 flex items-center justify-between pt-1 border-t border-gray-100">
+                  <span>Fuente: {aiSuggestion.ai_source}</span>
+                  <span className="font-semibold text-indigo-700">Decisión Humana Obligatoria</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Formulario de Dictamen */}
