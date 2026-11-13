@@ -30,3 +30,13 @@ services:
         value: "admin@votoseguro.org"
       - key: PLATFORM_ADMIN_PASSWORD
         value: "AdminPlatform2026!"
+      - key: AI_LOCAL_ENABLED
+        value: "true"
+      - key: NGROK_STATIC_DOMAIN
+        value: "repackage-remarry-reviving.ngrok-free.dev"
+      - key: LLM_BASE_URL
+        value: "https://repackage-remarry-reviving.ngrok-free.dev/v1"
+      - key: LLM_MODEL_NAME
+        value: "votoseguro-lfm3"
+      - key: LLM_TIMEOUT_SECONDS
+        value: "25.0"

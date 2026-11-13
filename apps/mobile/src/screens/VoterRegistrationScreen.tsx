@@ -186,7 +186,13 @@ export const VoterRegistrationScreen: React.FC<VoterRegistrationScreenProps> = (
                   <Text style={styles.ocrResultField}>Nombres: <Text style={styles.bold}>{extractedOcr.nombres}</Text></Text>
                   <Text style={styles.ocrResultField}>Apellidos: <Text style={styles.bold}>{extractedOcr.apellidos}</Text></Text>
                   <Text style={styles.ocrResultField}>Nacimiento: <Text style={styles.bold}>{extractedOcr.fecha_nacimiento || 'N/A'}</Text></Text>
-                  <Text style={styles.ocrResultSource}>Fuente: {extractedOcr.ai_source}</Text>
+                  <Text style={styles.ocrResultSource}>
+                    {extractedOcr.ai_source?.includes('NEURAL_TUNNEL')
+                      ? `🧠 Inferencia PC Local vía Túnel Estático (${extractedOcr.model_name || 'votoseguro-lfm3'})`
+                      : extractedOcr.ai_source === 'LFM3-1.7B'
+                      ? '🤖 LFM3-1.7B Local'
+                      : '⚙️ Modo Degradado Determinista'}
+                  </Text>
                 </View>
               )}
             </View>

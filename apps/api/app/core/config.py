@@ -46,12 +46,14 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> List[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
-    # Feature flags y configuración para IA Local (Sprint 2)
+    # Feature flags y configuración para IA Local (Sprint 2 y Sprint 2.5 - Túnel Estático)
     AI_LOCAL_ENABLED: bool = True
     AI_EXTERNAL_ENABLED: bool = False
-    LLM_BASE_URL: str = "http://llm:8080/v1"
-    LLM_MODEL_NAME: str = "LiquidAI/LFM3-1.7B-Q4_K_M"
-    LLM_TIMEOUT_SECONDS: float = 8.0
+    NGROK_STATIC_DOMAIN: str = "repackage-remarry-reviving.ngrok-free.dev"
+    LLM_BASE_URL: str = "https://repackage-remarry-reviving.ngrok-free.dev/v1"
+    LLM_MODEL_NAME: str = "votoseguro-lfm3"
+    LLM_TIMEOUT_SECONDS: float = 25.0
+    STRICT_NEURAL_MODE: bool = False
 
     # Inspector de Credenciales de Demostración (Sprint 1)
     DEMO_CREDENTIAL_INSPECTOR_ENABLED: bool = True

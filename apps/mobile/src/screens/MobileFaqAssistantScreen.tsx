@@ -140,11 +140,19 @@ export const MobileFaqAssistantScreen: React.FC<MobileFaqAssistantScreenProps> =
                 <View
                   style={[
                     styles.sourceTag,
-                    item.source === 'LFM3-1.7B' ? styles.sourceTagLlm : styles.sourceTagFallback,
+                    item.source?.includes('NEURAL_TUNNEL') || item.ai_source?.includes('NEURAL_TUNNEL')
+                      ? styles.sourceTagLlm
+                      : item.source === 'LFM3-1.7B'
+                      ? styles.sourceTagLlm
+                      : styles.sourceTagFallback,
                   ]}
                 >
                   <Text style={styles.sourceTagText}>
-                    {item.source === 'LFM3-1.7B' ? '🤖 LFM3-1.7B Local' : '⚡ Modo Degradado'}
+                    {item.source?.includes('NEURAL_TUNNEL') || item.ai_source?.includes('NEURAL_TUNNEL')
+                      ? '🧠 LFM3 Túnel Estático'
+                      : item.source === 'LFM3-1.7B'
+                      ? '🤖 LFM3-1.7B Local'
+                      : '⚡ Modo Degradado'}
                   </Text>
                 </View>
               </View>

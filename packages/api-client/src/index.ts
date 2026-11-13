@@ -1024,7 +1024,9 @@ export interface AnomalyExplanationResponse {
   explanation_es: string;
   recommended_checks: string[];
   requires_human_decision: boolean;
-  ai_source: 'LFM3-1.7B' | 'DETERMINISTIC_FALLBACK' | string;
+  ai_source: 'LFM3-1.7B' | 'LFM3-1.7B_NEURAL_TUNNEL' | 'DETERMINISTIC_FALLBACK' | string;
+  model_name?: string;
+  latency_ms?: number;
 }
 
 export interface AnomalyScanResponse {
@@ -1045,7 +1047,9 @@ export interface DuplicateAdjudicationSuggestion {
   confidence_label: 'ALTA' | 'MEDIA' | 'BAJA';
   short_reason: string;
   human_action_required: boolean;
-  ai_source: 'LFM3-1.7B' | 'DETERMINISTIC_FALLBACK' | string;
+  ai_source: 'LFM3-1.7B' | 'LFM3-1.7B_NEURAL_TUNNEL' | 'DETERMINISTIC_FALLBACK' | string;
+  model_name?: string;
+  latency_ms?: number;
 }
 
 export interface BatchDuplicateAdjudicationResponse {
@@ -1068,7 +1072,9 @@ export interface IdCardExtractionResponse {
   regex_valid: boolean;
   confidence_note: string;
   requires_voter_confirmation: boolean;
-  ai_source: 'LFM3-1.7B' | 'DETERMINISTIC_FALLBACK' | string;
+  ai_source: 'LFM3-1.7B' | 'LFM3-1.7B_NEURAL_TUNNEL' | 'DETERMINISTIC_FALLBACK' | string;
+  model_name?: string;
+  latency_ms?: number;
 }
 
 export interface DocumentCitation {
@@ -1092,7 +1098,8 @@ export interface RagAssistantResponse {
   answered_from_docs: boolean;
   citations: DocumentCitation[];
   escalate_to_support: boolean;
-  ai_source: 'LFM3-1.7B' | 'DETERMINISTIC_FALLBACK' | string;
+  ai_source: 'LFM3-1.7B' | 'LFM3-1.7B_NEURAL_TUNNEL' | 'DETERMINISTIC_FALLBACK' | string;
+  model_name?: string;
   latency_ms?: number;
   sources?: DocumentCitation[];
   suggests_support?: boolean;
@@ -1100,6 +1107,55 @@ export interface RagAssistantResponse {
 }
 
 export type AssistantAnswerResponse = RagAssistantResponse;
+
+export interface AiNodeStatusResponse {
+  status: 'CONNECTED' | 'DISCONNECTED' | string;
+  is_online: boolean;
+  llm_base_url: string;
+  llm_model_name: string;
+  provider: string;
+  strict_neural_mode: boolean;
+  timeout_seconds: number;
+  last_ping_status: string | null;
+  last_ping_latency_ms: number | null;
+  last_ping_at: string | null;
+  available_models: string[];
+  message: string;
+}
+
+export interface AiNodeConfigUpdateRequest {
+  llm_base_url?: string;
+  llm_model_name?: string;
+  provider?: string;
+  strict_neural_mode?: boolean;
+  timeout_seconds?: number;
+}
+
+export interface AiNodeTestInferenceRequest {
+  prompt?: string;
+}
+
+export interface AiNodeTestInferenceResponse {
+  success: boolean;
+  ai_source: string;
+  model_name: string;
+  latency_ms: number;
+  output_text: string;
+  parsed_json: Record<string, any> | null;
+  error?: string | null;
+}
+
+export interface AiNodePingRequest {
+  node_name?: string;
+  ngrok_url?: string;
+  model_name?: string;
+}
+
+export interface AiNodePingResponse {
+  acknowledged: boolean;
+  node_status: string;
+  message: string;
+}
 
 export type VoiceBallotAction =
   | 'READ_BALLOT'

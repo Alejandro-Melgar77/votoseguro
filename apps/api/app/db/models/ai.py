@@ -6,6 +6,7 @@ Modelos ORM para Inteligencia Artificial Local (IA-L1 y IA-L5):
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -101,3 +102,59 @@ class KbDocumentChunk(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+
+
+class AiRuntimeConfig(Base):
+    """
+    Configuración persistente en tiempo de ejecución para el Nodo Neuronal Local y Túnel Estático (Sprint 2.5).
+    Singleton en BD que permite ajustar dinámicamente la URL del túnel, modelo, proveedor y modo estricto.
+    """
+    __tablename__ = "ai_runtime_config"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    llm_base_url: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        default="https://repackage-remarry-reviving.ngrok-free.dev/v1",
+    )
+    llm_model_name: Mapped[str] = mapped_column(
+        String(128),
+        nullable=False,
+        default="votoseguro-lfm3",
+    )
+    provider: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="OLLAMA",
+    )  # OLLAMA | LM_STUDIO
+    strict_neural_mode: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+    timeout_seconds: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        default=25.0,
+    )
+    last_ping_status: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+    )
+    last_ping_latency_ms: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    last_ping_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+

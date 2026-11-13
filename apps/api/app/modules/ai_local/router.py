@@ -3,10 +3,13 @@ Router API para la Suite de Inteligencia Artificial Local (IA-L1 a IA-L5).
 Endpoints versionados bajo /api/v1/ai/
 """
 import uuid
+from datetime import datetime, timezone
 from typing import Annotated, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.dependencies import (
     TenantContext,
     get_current_user,
@@ -15,10 +18,12 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import ForbiddenException, NotFoundException
 from app.core.rate_limit import limiter
+from app.db.models.ai import AiRuntimeConfig
 from app.db.models.election import Election
 from app.db.models.user import User, UserRole
 from app.db.session import get_db_session
 from app.modules.ai_local.service import AiLocalService
+from app.ai.client import LocalLlmEngine
 from app.ai.schemas import (
     AnomalyScanResponse,
     BatchDuplicateAdjudicationResponse,
@@ -27,6 +32,12 @@ from app.ai.schemas import (
     IdCardExtractionResponse,
     RagAssistantRequest,
     RagAssistantResponse,
+    AiNodeStatusResponse,
+    AiNodeConfigUpdateRequest,
+    AiNodeTestInferenceRequest,
+    AiNodeTestInferenceResponse,
+    AiNodePingRequest,
+    AiNodePingResponse,
 )
 
 router = APIRouter(prefix="/ai", tags=["Inteligencia Artificial Local (LFM3-1.7B)"])
@@ -193,3 +204,212 @@ async def list_official_docs():
     Catálogo de los 12 fragmentos oficiales que conforman la base de conocimiento de VotoSeguro.
     """
     return AiLocalService.get_official_docs_catalog()
+
+
+# ==========================================
+# Sprint 2.5: Diagnóstico y Control del Túnel Estático (PC <-> Render)
+# ==========================================
+
+@router.get("/node/status", response_model=AiNodeStatusResponse)
+async def get_ai_node_status(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """
+    Diagnóstico en vivo del túnel estático hacia el Nodo Neuronal Local en la PC del usuario.
+    Mide la latencia de red desde Render hasta la PC y lista los modelos cargados en Ollama.
+    """
+    active_cfg = await LocalLlmEngine.get_effective_config(db)
+    llm_base_url = active_cfg["llm_base_url"]
+    model_name = active_cfg["llm_model_name"]
+    provider = active_cfg["provider"]
+    strict_mode = active_cfg["strict_neural_mode"]
+
+    ping_result = await LocalLlmEngine.ping_tunnel(llm_base_url=llm_base_url, timeout=6.0)
+    is_online = ping_result.get("online", False)
+    latency_ms = ping_result.get("latency_ms")
+    available_models = ping_result.get("available_models", [])
+
+    # Actualizar estado de último ping en BD
+    try:
+        stmt = select(AiRuntimeConfig).limit(1)
+        res = await db.execute(stmt)
+        cfg_record = res.scalar_one_or_none()
+        if cfg_record:
+            cfg_record.last_ping_status = "ONLINE" if is_online else "OFFLINE"
+            cfg_record.last_ping_latency_ms = latency_ms
+            cfg_record.last_ping_at = datetime.now(timezone.utc)
+            await db.commit()
+    except Exception as err:
+        logger.debug(f"Error actualizando last_ping_status: {err}")
+
+    if is_online:
+        label = "🟢 NODO NEURONAL LOCAL CONECTADO (TÚNEL ESTÁTICO NGROK ACTIVO)"
+    else:
+        label = "🟠 NODO PC APAGADO (OPERANDO EN MODO DEGRADADO — EJECUTE INICIAR_IA_LOCAL.BAT)"
+
+    return AiNodeStatusResponse(
+        online=is_online,
+        llm_base_url=llm_base_url,
+        model_name=model_name,
+        provider=provider,
+        strict_neural_mode=strict_mode,
+        latency_ms=latency_ms,
+        available_models=available_models,
+        status_label=label,
+        last_ping_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+@router.put("/node/config", response_model=AiNodeStatusResponse)
+async def update_ai_node_config(
+    body: AiNodeConfigUpdateRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """
+    Actualiza la configuración persistente del túnel (URL, modelo, modo estricto o proveedor).
+    Restringido a PLATFORM_ADMIN o ADMIN_GENERAL.
+    """
+    if current_user.role not in (UserRole.PLATFORM_ADMIN, UserRole.ADMIN_GENERAL):
+        raise ForbiddenException("Acceso restringido a administradores electorales o de plataforma.")
+
+    stmt = select(AiRuntimeConfig).limit(1)
+    res = await db.execute(stmt)
+    cfg_record = res.scalar_one_or_none()
+
+    if not cfg_record:
+        cfg_record = AiRuntimeConfig(
+            llm_base_url=body.llm_base_url or settings.LLM_BASE_URL,
+            llm_model_name=body.model_name or settings.LLM_MODEL_NAME,
+            provider=body.provider or "OLLAMA",
+            strict_neural_mode=body.strict_neural_mode if body.strict_neural_mode is not None else False,
+            timeout_seconds=body.timeout_seconds or 25.0,
+        )
+        db.add(cfg_record)
+    else:
+        if body.llm_base_url is not None:
+            cfg_record.llm_base_url = body.llm_base_url.rstrip("/")
+        if body.model_name is not None:
+            cfg_record.llm_model_name = body.model_name
+        if body.provider is not None:
+            cfg_record.provider = body.provider
+        if body.strict_neural_mode is not None:
+            cfg_record.strict_neural_mode = body.strict_neural_mode
+        if body.timeout_seconds is not None:
+            cfg_record.timeout_seconds = body.timeout_seconds
+        cfg_record.updated_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(cfg_record)
+
+    # Realizar ping con la nueva configuración
+    ping_result = await LocalLlmEngine.ping_tunnel(llm_base_url=cfg_record.llm_base_url, timeout=5.0)
+    is_online = ping_result.get("online", False)
+    latency_ms = ping_result.get("latency_ms")
+
+    return AiNodeStatusResponse(
+        online=is_online,
+        llm_base_url=cfg_record.llm_base_url,
+        model_name=cfg_record.llm_model_name,
+        provider=cfg_record.provider,
+        strict_neural_mode=cfg_record.strict_neural_mode,
+        latency_ms=latency_ms,
+        available_models=ping_result.get("available_models", []),
+        status_label="🟢 NODO CONECTADO" if is_online else "🟠 NODO OFFLINE",
+        last_ping_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+@router.post("/node/test-inference", response_model=AiNodeTestInferenceResponse)
+async def test_ai_node_inference(
+    body: AiNodeTestInferenceRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """
+    Envía un prompt electoral en vivo a través del túnel estático hacia la PC del usuario
+    y verifica la respuesta neuronal directa de votoseguro-lfm3 registrando la llamada en ai_call_log.
+    Restringido a PLATFORM_ADMIN o ADMIN_GENERAL.
+    """
+    if current_user.role not in (UserRole.PLATFORM_ADMIN, UserRole.ADMIN_GENERAL):
+        raise ForbiddenException("Acceso restringido a administradores electorales.")
+
+    test_prompt = body.prompt or (
+        "Analiza las siguientes métricas de participación de la urna electoral:\n"
+        "Mesa M-Test-Live: participación registrada de 91.5% frente a media de 49.0% (z-score = 2.45, umbral 1.80)."
+    )
+
+    t0 = datetime.now(timezone.utc)
+    try:
+        from app.ai.schemas import AnomalyExplanationResponse
+        res = await LocalLlmEngine.call_structured(
+            prompt=test_prompt,
+            schema_cls=AnomalyExplanationResponse,
+            fallback_fn=lambda: AnomalyExplanationResponse(
+                anomaly_id="TEST-FALLBACK",
+                code="Z_SCORE_SPIKE",
+                severity="HIGH",
+                metrics_summary={"z_score": 2.45},
+                explanation_es="Respuesta simulada generada por el fallback determinista local.",
+                recommended_checks=["Verificar que el servicio local en la PC esté encendido con INICIAR_IA_LOCAL.bat"],
+                requires_human_decision=True,
+                ai_source="DETERMINISTIC_FALLBACK",
+            ),
+            system_instruction="Eres el auditor estadístico asistido de VotoSeguro. Responde estrictamente en JSON.",
+            function_name="IA_NODE_TEST_INFERENCE",
+            organization_id=current_user.organization_id,
+            db=db,
+            sanitized_summary="Prueba de inferencia neuronal en vivo hacia PC Local",
+        )
+
+        return AiNodeTestInferenceResponse(
+            success=True,
+            ai_source=getattr(res, "ai_source", "UNKNOWN"),
+            model_name=getattr(res, "model_name", "votoseguro-lfm3"),
+            latency_ms=float(getattr(res, "latency_ms", 0) or 0),
+            raw_response=res.model_dump(),
+            audit_logged=True,
+        )
+    except Exception as exc:
+        return AiNodeTestInferenceResponse(
+            success=False,
+            ai_source="ERROR",
+            model_name="NONE",
+            latency_ms=0.0,
+            raw_response={},
+            audit_logged=False,
+            error_message=str(exc),
+        )
+
+
+@router.post("/node/ping", response_model=AiNodePingResponse)
+async def ping_from_local_node(
+    body: AiNodePingRequest,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """
+    Endpoint invocado por INICIAR_IA_LOCAL.bat o DETENER_IA_LOCAL.bat para anunciar
+    el estado ONLINE u OFFLINE del nodo neuronal de escritorio.
+    """
+    now = datetime.now(timezone.utc)
+    current_strict = False
+    try:
+        stmt = select(AiRuntimeConfig).limit(1)
+        res = await db.execute(stmt)
+        cfg = res.scalar_one_or_none()
+        if cfg:
+            cfg.last_ping_status = body.node_status
+            if body.local_latency_ms is not None:
+                cfg.last_ping_latency_ms = body.local_latency_ms
+            cfg.last_ping_at = now
+            current_strict = cfg.strict_neural_mode
+            await db.commit()
+    except Exception as err:
+        logger.debug(f"Error procesando ping del nodo: {err}")
+
+    return AiNodePingResponse(
+        acknowledged=True,
+        received_at=now.isoformat(),
+        current_strict_mode=current_strict,
+    )
+

@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { api } from '../../lib/api';
 import { RagAssistantResponse } from '@votoseguro/api-client';
+import { AiEngineTelemetryBadge } from './AiEngineTelemetryBadge';
 
 interface ElectoralFaqAssistantWidgetProps {
   isVotingStep?: boolean;
@@ -178,6 +179,15 @@ export const ElectoralFaqAssistantWidget: React.FC<ElectoralFaqAssistantWidgetPr
                       para resolver esta duda presencial o telefónicamente.
                     </div>
                   )}
+
+                  <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+                    <AiEngineTelemetryBadge
+                      source={response.ai_source}
+                      modelName={response.model_name}
+                      latencyMs={response.latency_ms}
+                      compact={true}
+                    />
+                  </div>
                 </div>
               </div>
             )}

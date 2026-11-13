@@ -37,7 +37,12 @@ class AnomalyExplanationResponse(BaseModel):
         default=True,
         description="Garantía de salvaguarda: la decisión final siempre es humana."
     )
-    ai_source: Literal["LFM3-1.7B", "DETERMINISTIC_FALLBACK"] = "DETERMINISTIC_FALLBACK"
+    ai_source: str = Field(
+        default="DETERMINISTIC_FALLBACK",
+        description="Origen de la inferencia: LFM3-1.7B_NEURAL_TUNNEL, LFM3-1.7B o DETERMINISTIC_FALLBACK."
+    )
+    model_name: Optional[str] = Field(default="votoseguro-lfm3", description="Nombre del modelo que procesó la solicitud.")
+    latency_ms: Optional[int] = Field(default=None, description="Latencia en milisegundos de la inferencia.")
 
 
 class AnomalyScanResponse(BaseModel):
@@ -69,7 +74,12 @@ class DuplicateAdjudicationSuggestion(BaseModel):
         default=True,
         description="Invariante: la IA nunca fusiona, borra ni bloquea de forma autónoma."
     )
-    ai_source: Literal["LFM3-1.7B", "DETERMINISTIC_FALLBACK"] = "DETERMINISTIC_FALLBACK"
+    ai_source: str = Field(
+        default="DETERMINISTIC_FALLBACK",
+        description="Origen de la inferencia: LFM3-1.7B_NEURAL_TUNNEL, LFM3-1.7B o DETERMINISTIC_FALLBACK."
+    )
+    model_name: Optional[str] = Field(default="votoseguro-lfm3", description="Nombre del modelo.")
+    latency_ms: Optional[int] = Field(default=None, description="Latencia en ms.")
 
 
 class BatchDuplicateAdjudicationResponse(BaseModel):
@@ -121,7 +131,12 @@ class IdCardExtractionResponse(BaseModel):
         default=True,
         description="Invariante: el votante debe confirmar visualmente los campos extraídos."
     )
-    ai_source: Literal["LFM3-1.7B", "DETERMINISTIC_FALLBACK"] = "DETERMINISTIC_FALLBACK"
+    ai_source: str = Field(
+        default="DETERMINISTIC_FALLBACK",
+        description="Origen de la inferencia: LFM3-1.7B_NEURAL_TUNNEL, LFM3-1.7B o DETERMINISTIC_FALLBACK."
+    )
+    model_name: Optional[str] = Field(default="votoseguro-lfm3", description="Nombre del modelo.")
+    latency_ms: Optional[int] = Field(default=None, description="Latencia en ms.")
 
 
 # ==========================================
@@ -159,4 +174,71 @@ class RagAssistantResponse(BaseModel):
         default=False,
         description="Indica si se aconseja contactar al soporte electoral humano."
     )
-    ai_source: Literal["LFM3-1.7B", "DETERMINISTIC_FALLBACK"] = "DETERMINISTIC_FALLBACK"
+    ai_source: str = Field(
+        default="DETERMINISTIC_FALLBACK",
+        description="Origen de la inferencia: LFM3-1.7B_NEURAL_TUNNEL, LFM3-1.7B o DETERMINISTIC_FALLBACK."
+    )
+    model_name: Optional[str] = Field(default="votoseguro-lfm3", description="Nombre del modelo.")
+    latency_ms: Optional[int] = Field(default=None, description="Latencia en ms.")
+
+
+# ==========================================
+# Sprint 2.5: Diagnóstico y Control de Túnel Estático
+# ==========================================
+
+class AiNodeStatusResponse(BaseModel):
+    online: bool
+    llm_base_url: str
+    model_name: str
+    provider: str
+    strict_neural_mode: bool
+    latency_ms: Optional[float] = None
+    available_models: List[str] = Field(default_factory=list)
+    status_label: str
+    last_ping_at: Optional[str] = None
+
+
+class AiNodeConfigUpdateRequest(BaseModel):
+    llm_base_url: Optional[str] = None
+    model_name: Optional[str] = None
+    provider: Optional[str] = None
+    strict_neural_mode: Optional[bool] = None
+    timeout_seconds: Optional[float] = None
+
+
+class AiNodeTestInferenceRequest(BaseModel):
+    prompt: Optional[str] = Field(
+        default=None,
+        description="Prompt electoral de prueba. Si no se provee, se usa uno estándar."
+    )
+    task_type: Optional[str] = Field(
+        default="IA-L1",
+        description="Tipo de tarea para prueba: IA-L1, IA-L2b, IA-L3 o IA-L5."
+    )
+
+
+class AiNodeTestInferenceResponse(BaseModel):
+    success: bool
+    ai_source: str
+    model_name: str
+    latency_ms: float
+    raw_response: dict[str, Any] = Field(default_factory=dict)
+    audit_logged: bool = True
+    error_message: Optional[str] = None
+
+
+class AiNodePingRequest(BaseModel):
+    node_status: str = Field(..., description="ONLINE o OFFLINE")
+    llm_base_url: Optional[str] = None
+    model_name: Optional[str] = None
+    provider: Optional[str] = None
+    tunnel_domain: Optional[str] = None
+    local_latency_ms: Optional[float] = None
+    timestamp: Optional[str] = None
+
+
+class AiNodePingResponse(BaseModel):
+    acknowledged: bool
+    received_at: str
+    current_strict_mode: bool
+

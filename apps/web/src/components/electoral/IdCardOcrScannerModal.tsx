@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { api } from '../../lib/api';
 import { IdCardExtractionResponse } from '@votoseguro/api-client';
+import { AiEngineTelemetryBadge } from './AiEngineTelemetryBadge';
 
 interface IdCardOcrScannerModalProps {
   isOpen: boolean;
@@ -275,6 +276,14 @@ export const IdCardOcrScannerModal: React.FC<IdCardOcrScannerModalProps> = ({
 
               <div className="text-[11px] text-gray-500 italic">
                 {extractedResult.confidence_note}
+              </div>
+
+              <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+                <AiEngineTelemetryBadge
+                  source={extractedResult.ai_source}
+                  modelName={extractedResult.model_name}
+                  latencyMs={extractedResult.latency_ms}
+                />
               </div>
 
               <div className="pt-2 flex justify-end gap-2 border-t border-gray-200">

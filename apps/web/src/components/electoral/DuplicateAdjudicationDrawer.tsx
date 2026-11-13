@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ImportIssue, DuplicateAdjudicationSuggestion } from '@votoseguro/api-client';
 import { api } from '@/lib/api';
+import { AiEngineTelemetryBadge } from './AiEngineTelemetryBadge';
 
 interface DuplicateAdjudicationDrawerProps {
   electionId: string;
@@ -198,8 +199,12 @@ export const DuplicateAdjudicationDrawer: React.FC<DuplicateAdjudicationDrawerPr
                   <strong>Motivo IA:</strong> {aiSuggestion.short_reason}
                 </div>
 
-                <div className="text-[10px] text-gray-400 flex items-center justify-between pt-1 border-t border-gray-100">
-                  <span>Fuente: {aiSuggestion.ai_source}</span>
+                <div className="text-[10px] text-gray-400 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                  <AiEngineTelemetryBadge
+                    source={aiSuggestion.ai_source}
+                    modelName={aiSuggestion.model_name}
+                    latencyMs={aiSuggestion.latency_ms}
+                  />
                   <span className="font-semibold text-indigo-700">Decisión Humana Obligatoria</span>
                 </div>
               </div>

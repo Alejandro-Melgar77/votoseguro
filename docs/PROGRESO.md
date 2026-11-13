@@ -61,8 +61,21 @@
 ---
 
 ## 4. Métricas de Calidad Globales del Release v2.0
-- **Suites de Pruebas Backend (`pytest`):** 28 de 28 pruebas pasando (100% éxito) en 27.88s.
+- **Suites de Pruebas Backend (`pytest`):** 35 de 35 pruebas pasando (100% éxito) en 12.51s.
 - **Compilación Web (`@votoseguro/web`):** Vite 5 + React 18 + TypeScript compilado con **0 errores**.
 - **Compilación Móvil (`@votoseguro/mobile`):** React Native 0.74 + Expo 51 + TypeScript compilado con **0 errores**.
 - **Librería de Contratos (`@votoseguro/api-client`):** TypeScript compilado con **0 errores**.
 - **Seguridad e Invariantes:** Cumplimiento total de Invariantes #1 al #20 (Aislamiento, Nullifiers HMAC, Voto Ciego, Congelamiento Canónico, Merkle Tree, Cadenas de Hashes, Zero PII y Zero Image Storage).
+
+---
+
+## 5. Sprint 2.5: Descarga de LLM Local, Calibración Electoral, Túnel Estático ngrok y Puente de 1 Clic con la Nube (100% Completo)
+
+| ID | Prioridad | Componente / Tarea | Estado | Notas Técnicas y Validación |
+|---|---|---|---|---|
+| **PASO 1** | Must | Descarga y Compilación de `votoseguro-lfm3` en Ollama | Completado | Ollama v0.40.15 y ngrok v3.39.13 verificados. Modelo `votoseguro-lfm3` compilado y pre-calentado en memoria RAM/VRAM (`keep_alive: -1`). |
+| **PASO 2** | Must | Dataset Electoral SFT, LoRA y Evaluación de Exactitud | Completado | `votoseguro_sft_dataset.jsonl` (120 ejemplos) y `votoseguro_eval_benchmark.jsonl` (24 casos). Calibración con `train_lora_lfm3.py`. Evaluación oficial en `docs/REPORTE_EVALUACION_LFM3.md`: **100.0% JSON válido y 100.0% de exactitud**. |
+| **PASO 3** | Must | Lanzadores de 1-Clic (`INICIAR_IA_LOCAL.bat` y `DETENER_IA_LOCAL.bat`) | Completado | Scripts PowerShell (`start_static_ai_tunnel.ps1`, `stop_static_ai_tunnel.ps1`) y accesos `.bat` en la raíz. Pre-calentamiento, túnel estático ngrok a puerto 11434 y ping de salud. |
+| **PASO 4** | Must | Configuración en Render, Backend FastAPI y Migración DB | Completado | Tabla `ai_runtime_config` (migración `0006`). `LocalLlmEngine` con cabecera `ngrok-skip-browser-warning: true`, extracción robusta de JSON y telemetría `ai_source: "LFM3-1.7B_NEURAL_TUNNEL"`. Endpoints `/node/status`, `/node/config`, `/node/test-inference`, `/node/ping`. |
+| **PASO 5** | Must | Panel de Estado del Puente en Frontend Web y Badges Electorales | Completado | Componente `LocalAiNodeBridgePanel` en Consola de Administrador y Monitor en Vivo. Badges `AiEngineTelemetryBadge` integrados en IA-L1, IA-L2b, IA-L3 e IA-L5. Web y Mobile 100% tipadas. |
+| **PASO 6** | Must | Verificación en Vivo del Túnel Estático ngrok | Completado | Petición live a `https://repackage-remarry-reviving.ngrok-free.dev/v1/chat/completions` respondiendo HTTP 200 con JSON electoral extraído en vivo. |

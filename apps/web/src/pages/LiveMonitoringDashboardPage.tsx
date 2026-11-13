@@ -17,6 +17,8 @@ import {
 import { InstitutionalShell } from '@/components/layout/InstitutionalShell';
 import { CryptographicHashBadge } from '@/components/electoral/CryptographicHashBadge';
 import { ElectoralFaqAssistantWidget } from '@/components/electoral/ElectoralFaqAssistantWidget';
+import { LocalAiNodeBridgePanel } from '@/components/electoral/LocalAiNodeBridgePanel';
+import { AiEngineTelemetryBadge } from '@/components/electoral/AiEngineTelemetryBadge';
 import { api, ApiError } from '@/lib/api';
 import type { LiveDashboardSnapshot, AnomalyScanResponse } from '@votoseguro/api-client';
 
@@ -500,6 +502,9 @@ export const LiveMonitoringDashboardPage: React.FC = () => {
           </div>
         )}
 
+        {/* Puente Neuronal Local (Sprint 2.5) */}
+        <LocalAiNodeBridgePanel defaultExpanded={false} />
+
         {/* IA-L1: Monitor de Anomalías Estadísticas y Explicación Asistida */}
         <div className="bg-white rounded-xl shadow-card border border-stone-200 overflow-hidden">
             <div className="p-6 border-b border-stone-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -596,9 +601,11 @@ export const LiveMonitoringDashboardPage: React.FC = () => {
                           </div>
 
                           <div className="flex items-center gap-2 text-[11px]">
-                            <span className="px-2 py-0.5 rounded bg-stone-100 text-stone-700 font-mono">
-                              Fuente: {anom.ai_source}
-                            </span>
+                            <AiEngineTelemetryBadge
+                              source={anom.ai_source}
+                              modelName={anom.model_name}
+                              latencyMs={anom.latency_ms}
+                            />
                             <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">
                               Decisión Humana Requerida
                             </span>

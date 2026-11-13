@@ -55,6 +55,7 @@ from app.db.models.notification import (
 from app.db.models.ai import (
     AnomalyAlert,
     KbDocumentChunk,
+    AiRuntimeConfig,
 )
 
 __all__ = [
@@ -95,4 +96,5 @@ __all__ = [
     "NotificationOutbox",
     "AnomalyAlert",
     "KbDocumentChunk",
+    "AiRuntimeConfig",
 ]

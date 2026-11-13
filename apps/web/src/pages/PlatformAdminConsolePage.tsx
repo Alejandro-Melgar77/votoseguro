@@ -21,6 +21,7 @@ import type {
   RejectElectionRequest,
 } from '@votoseguro/api-client';
 import { formatElectoralDateTime } from '@/lib/timezone';
+import { LocalAiNodeBridgePanel } from '@/components/electoral/LocalAiNodeBridgePanel';
 
 export const PlatformAdminConsolePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'orgs' | 'requests'>('orgs');
@@ -187,6 +188,9 @@ export const PlatformAdminConsolePage: React.FC = () => {
             <span>{seedFeedback}</span>
           </div>
         )}
+
+        {/* Panel del Puente Neuronal Local (Sprint 2.5) */}
+        <LocalAiNodeBridgePanel defaultExpanded={false} />
 
         {/* Selector de Pestañas */}
         <div className="flex border-b border-stone-300 space-x-6 text-xs font-semibold">

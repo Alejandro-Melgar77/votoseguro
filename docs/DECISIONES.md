@@ -179,3 +179,32 @@
   1. Se implementa `apps/mobile` con React Native 0.74, Expo 51 y TypeScript consumiendo el paquete central `@votoseguro/api-client`.
   2. Soporta el esquema de Deep Link `votoseguro://register/:token` y `votoseguro://receipt/:hash`.
   3. Comparte exactamente los mismos contratos, lógica de negocio y endpoints `/api/v1` que el cliente web, garantizando paridad total de características y soberanía criptográfica.
+
+## ADR 020: Túnel Estático ngrok Permanente y Bypass de Advertencias Anti-Abuso (Sprint 2.5)
+- **Fecha:** 2026-11-12
+- **Estado:** Aceptado
+- **Contexto:** En despliegues donde el backend corre en la nube (Render) y el nodo neuronal corre en la PC de escritorio del operador, los túneles dinámicos exigen reconfigurar variables de entorno y reiniciar el servicio ante cada reinicio de la máquina. Adicionalmente, ngrok intercepta llamadas HTTP libres con páginas HTML anti-abuso.
+- **Decisión:**
+  1. Se fija un dominio estático permanente (`repackage-remarry-reviving.ngrok-free.dev`) mapeado a `LLM_BASE_URL=https://repackage-remarry-reviving.ngrok-free.dev/v1`.
+  2. Todas las llamadas salientes desde `LocalLlmEngine` incorporan obligatoriamente la cabecera `ngrok-skip-browser-warning: true` y User-Agent institucional, garantizando tráfico JSON puro.
+  3. Se persiste la configuración en la tabla singleton `ai_runtime_config` en PostgreSQL con endpoints administrativos de consulta (`GET /ai/node/status`), ajuste dinámico (`PUT /ai/node/config`) e inferencia de prueba (`POST /ai/node/test-inference`).
+
+## ADR 021: Calibración Few-Shot / LoRA SFT sobre Pesos 1.7B y Extracción Robusta de JSON (Sprint 2.5)
+- **Fecha:** 2026-11-12
+- **Estado:** Aceptado
+- **Contexto:** Modelos cuantizados pequeños (1.7B / 1.5B) pueden emitir preámbulos o bloques de markdown que rompen validadores JSON estrictos. Asimismo, se requiere exactitud electoral en IA-L1 (anomalías), IA-L2b (duplicados), IA-L3 (OCR cédula) e IA-L5 (RAG neutral).
+- **Decisión:**
+  1. Se genera un dataset electoral supervisado de 120 ejemplos (`services/llm/training/votoseguro_sft_dataset.jsonl`) y un benchmark de evaluación de 24 casos balanceados.
+  2. Se compila `votoseguro-lfm3` en Ollama mediante `services/llm/Modelfile.votoseguro` inyectando directivas de esquema estricto y ejemplares calibrados.
+  3. En `LocalLlmEngine` se implementa `extract_first_json_object(raw_text)` con regex balanceada para stripping de bloques markdown antes de pasar al schema Pydantic.
+  4. La evaluación oficial (`docs/REPORTE_EVALUACION_LFM3.md`) certifica **100.0% de JSON válido** y **100.0% de exactitud (accuracy)** sobre los 24 casos del benchmark.
+
+## ADR 022: Lanzador de 1-Clic, Warmup en Memoria y Telemetría Visual del Puente (Sprint 2.5)
+- **Fecha:** 2026-11-12
+- **Estado:** Aceptado
+- **Contexto:** El encendido del nodo local no debe requerir comandos de consola manuales por parte del operador y debe evitarse la latencia de arranque en frío (cold-start).
+- **Decisión:**
+  1. Se proveen scripts de 1 clic `INICIAR_IA_LOCAL.bat` y `DETENER_IA_LOCAL.bat`.
+  2. El lanzador pre-carga el modelo con `keep_alive: -1`, manteniéndolo residente en memoria RAM/VRAM.
+  3. Las respuestas de inferencia reportan `ai_source: "LFM3-1.7B_NEURAL_TUNNEL"`, `model_name` y `latency_ms`.
+  4. En el Frontend Web se expone el panel `LocalAiNodeBridgePanel` con semáforo de estado, toggle de modo estricto e inferencia en vivo, y badges visuales `AiEngineTelemetryBadge` en las vistas electorales.

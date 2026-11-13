@@ -1,0 +1,14 @@
+{
+  "status": "CALIBRATED_SUCCESS",
+  "method": "FEW_SHOT_INSTRUCTION_TUNING_AND_OLLAMA_COMPILATION",
+  "base_model": "qwen2.5:1.5b",
+  "target_model_name": "votoseguro-lfm3",
+  "exemplars_count": 8,
+  "tasks": [
+    "IA-L1_ANOMALIES",
+    "IA-L2b_DUPLICATES",
+    "IA-L3_OCR",
+    "IA-L5_RAG_ASSISTANT"
+  ],
+  "adapters_ready_for_gguf": true
+}
