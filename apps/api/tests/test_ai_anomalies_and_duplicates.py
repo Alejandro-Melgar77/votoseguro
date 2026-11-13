@@ -67,7 +67,7 @@ async def test_ai_anomalies_explanation_and_audit(
     assert isinstance(first_anom["recommended_checks"], list)
     assert len(first_anom["recommended_checks"]) >= 2
     assert first_anom["requires_human_decision"] is True
-    assert first_anom["ai_source"] in ("LFM3-1.7B", "DETERMINISTIC_FALLBACK")
+    assert first_anom["ai_source"] in ("LFM3-1.7B", "LFM3-1.7B_NEURAL_TUNNEL", "DETERMINISTIC_FALLBACK")
 
     # Invariante #11: Las métricas jamás contienen conteos por candidato ni opciones políticas
     metrics_str = str(first_anom["metrics_summary"]).lower()
@@ -174,13 +174,13 @@ async def test_ai_duplicates_adjudication_human_in_the_loop(
     assert sugg["confidence_label"] in ("ALTA", "MEDIA", "BAJA")
     assert len(sugg["short_reason"]) <= 250
     assert sugg["human_action_required"] is True
-    assert sugg["ai_source"] in ("LFM3-1.7B", "DETERMINISTIC_FALLBACK")
+    assert sugg["ai_source"] in ("LFM3-1.7B", "LFM3-1.7B_NEURAL_TUNNEL", "DETERMINISTIC_FALLBACK")
 
     # 3. Comprobar en base de datos: guardó veredicto y motivo pero NUNCA cambió resolution
     await test_db.refresh(issue)
     assert issue.ai_verdict in ("mismo", "distinto", "dudoso")
     assert issue.ai_reason is not None
-    assert issue.ai_model in ("LiquidAI/LFM3-1.7B-Q4_K_M", "DETERMINISTIC_FALLBACK")
+    assert issue.ai_model in ("LiquidAI/LFM3-1.7B-Q4_K_M", "LFM3-1.7B_NEURAL_TUNNEL", "DETERMINISTIC_FALLBACK")
     assert issue.ai_evaluated_at is not None
     # Salvaguarda Crítica: La resolución permanece intacta hasta que el Administrador decida
     assert issue.resolution == "PENDING"

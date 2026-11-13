@@ -63,6 +63,8 @@ class LocalLlmEngine:
         """
         Recupera la configuración activa desde la tabla singleton ai_runtime_config
         o hace fallback a las variables de entorno de settings.
+        Incluye auto-curación para forzar la URL estática de ngrok si la base de datos
+        tiene valores obsoletos (localhost / 127.0.0.1 / http://llm o vacíos).
         """
         cfg = {
             "llm_base_url": settings.LLM_BASE_URL.rstrip("/"),
@@ -78,6 +80,19 @@ class LocalLlmEngine:
                 result = await db.execute(stmt)
                 db_cfg = result.scalar_one_or_none()
                 if db_cfg:
+                    # Auto-curación de URLs heredadas u obsoletas
+                    current_url = (db_cfg.llm_base_url or "").strip().lower()
+                    needs_healing = False
+                    if not current_url or any(bad in current_url for bad in ["localhost", "127.0.0.1", "http://llm"]):
+                        db_cfg.llm_base_url = "https://repackage-remarry-reviving.ngrok-free.dev/v1"
+                        db_cfg.llm_model_name = "votoseguro-lfm3"
+                        needs_healing = True
+
+                    if needs_healing:
+                        await db.commit()
+                        await db.refresh(db_cfg)
+                        logger.info("[AiRuntimeConfig] Auto-curación aplicada: URL actualizada a https://repackage-remarry-reviving.ngrok-free.dev/v1")
+
                     cfg["llm_base_url"] = db_cfg.llm_base_url.rstrip("/")
                     cfg["llm_model_name"] = db_cfg.llm_model_name
                     cfg["provider"] = db_cfg.provider
@@ -244,22 +259,30 @@ class LocalLlmEngine:
         return parsed_result
 
     @staticmethod
-    async def ping_tunnel(llm_base_url: str, timeout: float = 6.0) -> dict[str, Any]:
+    async def ping_tunnel(llm_base_url: str, timeout: float = 10.0) -> dict[str, Any]:
         """
-        Hace un ping directo al endpoint {llm_base_url}/models a través de ngrok
-        midiendo la latencia de red y listando modelos disponibles.
+        Diagnóstico robusto hacia el túnel estático ngrok (OpenAI endpoint o tags nativo de Ollama).
+        Previene duplicación de '/v1', valida JSON puro y extrae modelos disponibles.
         """
-        url = f"{llm_base_url.rstrip('/')}/models"
+        clean_base = (llm_base_url or "").rstrip("/")
+        root_url = clean_base[:-3] if clean_base.endswith("/v1") else clean_base
+        models_url = f"{root_url}/v1/models"
+        ollama_tags_url = f"{root_url}/api/tags"
+
         headers = {
             "ngrok-skip-browser-warning": "true",
-            "User-Agent": "VotoSeguro-Tunnel-Diagnostics/2.0",
+            "User-Agent": "VotoSeguro-Backend/2.5",
         }
+
         t0 = time.perf_counter()
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                resp = await client.get(url, headers=headers)
+                # 1. Intentar endpoint OpenAI estándar (/v1/models)
+                resp = await client.get(models_url, headers=headers)
                 latency_ms = round((time.perf_counter() - t0) * 1000, 2)
-                if resp.status_code == 200:
+                content_type = resp.headers.get("content-type", "").lower()
+
+                if resp.status_code == 200 and "application/json" in content_type:
                     data = resp.json()
                     models = [m.get("id") or m.get("name") for m in data.get("data", []) if isinstance(m, dict)]
                     return {
@@ -267,12 +290,32 @@ class LocalLlmEngine:
                         "latency_ms": latency_ms,
                         "available_models": models,
                         "status_code": 200,
+                        "endpoint_checked": models_url,
                     }
+
+                # 2. Si falló o dio 404, intentar endpoint nativo de Ollama (/api/tags)
+                t0_tags = time.perf_counter()
+                resp_tags = await client.get(ollama_tags_url, headers=headers)
+                latency_tags_ms = round((time.perf_counter() - t0_tags) * 1000, 2)
+                content_type_tags = resp_tags.headers.get("content-type", "").lower()
+
+                if resp_tags.status_code == 200 and "application/json" in content_type_tags:
+                    data_tags = resp_tags.json()
+                    models = [m.get("name") for m in data_tags.get("models", []) if isinstance(m, dict) and m.get("name")]
+                    return {
+                        "online": True,
+                        "latency_ms": latency_tags_ms,
+                        "available_models": models,
+                        "status_code": 200,
+                        "endpoint_checked": ollama_tags_url,
+                    }
+
                 return {
                     "online": False,
                     "latency_ms": latency_ms,
                     "available_models": [],
                     "status_code": resp.status_code,
+                    "endpoint_checked": models_url,
                 }
         except Exception as exc:
             return {
@@ -280,6 +323,7 @@ class LocalLlmEngine:
                 "latency_ms": None,
                 "available_models": [],
                 "error": str(exc),
+                "endpoint_checked": models_url,
             }
 
     @staticmethod

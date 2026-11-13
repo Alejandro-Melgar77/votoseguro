@@ -1109,22 +1109,27 @@ export interface RagAssistantResponse {
 export type AssistantAnswerResponse = RagAssistantResponse;
 
 export interface AiNodeStatusResponse {
-  status: 'CONNECTED' | 'DISCONNECTED' | string;
-  is_online: boolean;
+  online?: boolean;
+  is_online?: boolean;
+  status?: 'CONNECTED' | 'DISCONNECTED' | string;
   llm_base_url: string;
-  llm_model_name: string;
+  model_name?: string;
+  llm_model_name?: string;
   provider: string;
   strict_neural_mode: boolean;
-  timeout_seconds: number;
-  last_ping_status: string | null;
-  last_ping_latency_ms: number | null;
-  last_ping_at: string | null;
-  available_models: string[];
-  message: string;
+  timeout_seconds?: number;
+  latency_ms?: number | null;
+  last_ping_status?: string | null;
+  last_ping_latency_ms?: number | null;
+  last_ping_at?: string | null;
+  available_models?: string[];
+  status_label?: string;
+  message?: string;
 }
 
 export interface AiNodeConfigUpdateRequest {
   llm_base_url?: string;
+  model_name?: string;
   llm_model_name?: string;
   provider?: string;
   strict_neural_mode?: boolean;
@@ -1133,6 +1138,7 @@ export interface AiNodeConfigUpdateRequest {
 
 export interface AiNodeTestInferenceRequest {
   prompt?: string;
+  task_type?: string;
 }
 
 export interface AiNodeTestInferenceResponse {
@@ -1140,21 +1146,34 @@ export interface AiNodeTestInferenceResponse {
   ai_source: string;
   model_name: string;
   latency_ms: number;
-  output_text: string;
-  parsed_json: Record<string, any> | null;
+  raw_response?: Record<string, any>;
+  output_text?: string;
+  parsed_json?: Record<string, any> | null;
+  audit_logged?: boolean;
   error?: string | null;
+  error_message?: string | null;
 }
 
 export interface AiNodePingRequest {
-  node_name?: string;
-  ngrok_url?: string;
+  node_status?: string;
+  llm_base_url?: string;
   model_name?: string;
+  provider?: string;
+  tunnel_domain?: string;
+  local_latency_ms?: number | null;
+  timestamp?: string | null;
 }
 
 export interface AiNodePingResponse {
   acknowledged: boolean;
-  node_status: string;
-  message: string;
+  online?: boolean;
+  llm_base_url?: string;
+  model_name?: string;
+  latency_ms?: number | null;
+  received_at?: string;
+  current_strict_mode?: boolean;
+  node_status?: string;
+  message?: string;
 }
 
 export type VoiceBallotAction =

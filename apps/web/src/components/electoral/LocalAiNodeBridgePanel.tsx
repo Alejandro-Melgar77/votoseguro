@@ -47,9 +47,73 @@ export const LocalAiNodeBridgePanel: React.FC<LocalAiNodeBridgePanelProps> = ({
     setError(null);
     try {
       const data = await api.get<AiNodeStatusResponse>('/ai/node/status');
+      const isOnline = data.online ?? data.is_online ?? false;
+
+      // Si el backend en la nube dice que está offline (ej. recién despertando o BD con URL previa),
+      // realizamos una verificación de respaldo directa desde el navegador hacia el túnel estático.
+      if (!isOnline) {
+        try {
+          const t0 = performance.now();
+          const directResp = await fetch(
+            'https://repackage-remarry-reviving.ngrok-free.dev/v1/models',
+            {
+              headers: {
+                'ngrok-skip-browser-warning': 'true',
+              },
+            }
+          );
+          if (directResp.ok) {
+            const directLatency = Math.round(performance.now() - t0);
+            data.online = true;
+            data.is_online = true;
+            data.latency_ms = directLatency;
+            data.last_ping_latency_ms = directLatency;
+            data.status_label = '🟢 NODO NEURONAL LOCAL CONECTADO (TÚNEL ESTÁTICO ACTIVO)';
+
+            // Notificar y sincronizar a Render / Supabase automáticamente
+            try {
+              await api.post('/ai/node/ping', {
+                llm_base_url: 'https://repackage-remarry-reviving.ngrok-free.dev/v1',
+                model_name: 'votoseguro-lfm3',
+                node_status: 'ONLINE',
+                local_latency_ms: directLatency,
+              });
+            } catch (syncErr) {
+              console.debug('Autosync ping warning:', syncErr);
+            }
+          }
+        } catch (directErr) {
+          console.debug('Direct browser check failed (tunnel truly offline):', directErr);
+        }
+      }
+
       setStatus(data);
     } catch (err: any) {
       setError(err.message || 'No se pudo contactar el estado del nodo neuronal.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualRefresh = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // 1. Enviar ping de sincronización forzada al backend con la URL estática
+      try {
+        await api.post('/ai/node/ping', {
+          llm_base_url: 'https://repackage-remarry-reviving.ngrok-free.dev/v1',
+          model_name: 'votoseguro-lfm3',
+          node_status: 'ONLINE',
+        });
+      } catch (pingErr) {
+        console.debug('Ping pre-fetch notice:', pingErr);
+      }
+
+      // 2. Ejecutar fetchStatus completo con verificación de respaldo
+      await fetchStatus();
+    } catch (err: any) {
+      setError(err.message || 'Error al actualizar el estado del nodo neuronal.');
     } finally {
       setLoading(false);
     }
@@ -95,7 +159,9 @@ export const LocalAiNodeBridgePanel: React.FC<LocalAiNodeBridgePanelProps> = ({
     }
   };
 
-  const isConnected = status?.is_online ?? false;
+  const isConnected = status?.online ?? status?.is_online ?? false;
+  const currentModelName = status?.model_name || status?.llm_model_name || 'votoseguro-lfm3';
+  const currentLatency = status?.latency_ms ?? status?.last_ping_latency_ms;
 
   return (
     <div
@@ -140,7 +206,7 @@ export const LocalAiNodeBridgePanel: React.FC<LocalAiNodeBridgePanelProps> = ({
             <p className="text-xs text-stone-500 mt-0.5">
               Conexión directa entre Render y el modelo{' '}
               <strong className="text-stone-700 font-mono">
-                {status?.llm_model_name || 'votoseguro-lfm3'}
+                {currentModelName}
               </strong>{' '}
               vía ngrok estático.
             </p>
@@ -150,10 +216,10 @@ export const LocalAiNodeBridgePanel: React.FC<LocalAiNodeBridgePanelProps> = ({
         <div className="flex items-center space-x-2">
           <button
             type="button"
-            onClick={fetchStatus}
+            onClick={handleManualRefresh}
             disabled={loading}
             className="px-3 py-1.5 bg-white hover:bg-stone-100 text-stone-700 border border-stone-300 rounded-lg text-xs font-semibold flex items-center space-x-1.5 shadow-2xs transition-colors disabled:opacity-50"
-            title="Sondear estado de conexión con el túnel ngrok"
+            title="Sondear y sincronizar estado de conexión con el túnel ngrok"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Actualizar</span>
@@ -211,7 +277,7 @@ export const LocalAiNodeBridgePanel: React.FC<LocalAiNodeBridgePanelProps> = ({
                 <Cpu className="w-4 h-4 text-emerald-600" />
               </div>
               <div className="font-mono text-sm font-bold text-stone-900 mt-2">
-                {status?.llm_model_name || 'votoseguro-lfm3'}
+                {currentModelName}
               </div>
               <div className="mt-1 text-2xs text-stone-500">
                 Pesos cuantizados Q4_K_M (1.7B / 1.5B) + LoRA
@@ -227,8 +293,8 @@ export const LocalAiNodeBridgePanel: React.FC<LocalAiNodeBridgePanelProps> = ({
                 <Activity className="w-4 h-4 text-blue-600" />
               </div>
               <div className="font-mono text-xl font-black text-civic-navy-900 mt-1">
-                {status?.last_ping_latency_ms !== null && status?.last_ping_latency_ms !== undefined
-                  ? `${Math.round(status.last_ping_latency_ms)} ms`
+                {currentLatency !== null && currentLatency !== undefined
+                  ? `${Math.round(currentLatency)} ms`
                   : 'N/A'}
               </div>
               <div className="mt-1 text-2xs text-stone-500">

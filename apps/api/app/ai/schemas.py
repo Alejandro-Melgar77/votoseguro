@@ -228,17 +228,24 @@ class AiNodeTestInferenceResponse(BaseModel):
 
 
 class AiNodePingRequest(BaseModel):
-    node_status: str = Field(..., description="ONLINE o OFFLINE")
-    llm_base_url: Optional[str] = None
-    model_name: Optional[str] = None
-    provider: Optional[str] = None
-    tunnel_domain: Optional[str] = None
+    node_status: str = Field(default="ONLINE", description="ONLINE o OFFLINE")
+    llm_base_url: Optional[str] = Field(
+        default="https://repackage-remarry-reviving.ngrok-free.dev/v1",
+        description="URL base del modelo local en túnel estático",
+    )
+    model_name: Optional[str] = Field(default="votoseguro-lfm3", description="Nombre del modelo especializado")
+    provider: Optional[str] = "OLLAMA"
+    tunnel_domain: Optional[str] = "repackage-remarry-reviving.ngrok-free.dev"
     local_latency_ms: Optional[float] = None
     timestamp: Optional[str] = None
 
 
 class AiNodePingResponse(BaseModel):
-    acknowledged: bool
+    acknowledged: bool = True
+    online: bool = True
+    llm_base_url: str = "https://repackage-remarry-reviving.ngrok-free.dev/v1"
+    model_name: str = "votoseguro-lfm3"
+    latency_ms: Optional[float] = None
     received_at: str
-    current_strict_mode: bool
+    current_strict_mode: bool = False
 

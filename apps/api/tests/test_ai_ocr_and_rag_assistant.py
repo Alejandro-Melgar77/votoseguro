@@ -40,7 +40,7 @@ async def test_ai_id_card_ocr_extraction_without_images(
     assert "2001" in data["fecha_nacimiento"]
     assert data["regex_valid"] is True
     assert data["requires_voter_confirmation"] is True
-    assert data["ai_source"] in ("LFM3-1.7B", "DETERMINISTIC_FALLBACK")
+    assert data["ai_source"] in ("LFM3-1.7B", "LFM3-1.7B_NEURAL_TUNNEL", "DETERMINISTIC_FALLBACK")
 
     # Invariante #15: Si se incluye un payload de imagen Data URI por error, se descarta el binario
     tainted_ocr = f"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\n{sample_ocr}"

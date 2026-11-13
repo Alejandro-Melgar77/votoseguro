@@ -224,7 +224,7 @@ async def get_ai_node_status(
     provider = active_cfg["provider"]
     strict_mode = active_cfg["strict_neural_mode"]
 
-    ping_result = await LocalLlmEngine.ping_tunnel(llm_base_url=llm_base_url, timeout=6.0)
+    ping_result = await LocalLlmEngine.ping_tunnel(llm_base_url=llm_base_url, timeout=10.0)
     is_online = ping_result.get("online", False)
     latency_ms = ping_result.get("latency_ms")
     available_models = ping_result.get("available_models", [])
@@ -384,31 +384,72 @@ async def test_ai_node_inference(
 
 @router.post("/node/ping", response_model=AiNodePingResponse)
 async def ping_from_local_node(
-    body: AiNodePingRequest,
-    db: Annotated[AsyncSession, Depends(get_db_session)],
+    body: Optional[AiNodePingRequest] = None,
+    db: Annotated[AsyncSession, Depends(get_db_session)] = None,
 ):
     """
-    Endpoint invocado por INICIAR_IA_LOCAL.bat o DETENER_IA_LOCAL.bat para anunciar
-    el estado ONLINE u OFFLINE del nodo neuronal de escritorio.
+    Endpoint público (sin autenticación requerida) invocado por INICIAR_IA_LOCAL.bat,
+    start_static_ai_tunnel.ps1 o por el frontend web para sincronizar la presencia del nodo.
+    Persiste la URL estática de ngrok en ai_runtime_config en Supabase y ejecuta un ping de verificación.
     """
+    req = body or AiNodePingRequest()
     now = datetime.now(timezone.utc)
     current_strict = False
+
+    target_url = (req.llm_base_url or settings.LLM_BASE_URL).rstrip("/")
+    target_model = req.model_name or settings.LLM_MODEL_NAME
+
+    # 1. Asegurar persistencia y auto-curación en ai_runtime_config
+    cfg = None
     try:
         stmt = select(AiRuntimeConfig).limit(1)
         res = await db.execute(stmt)
         cfg = res.scalar_one_or_none()
-        if cfg:
-            cfg.last_ping_status = body.node_status
-            if body.local_latency_ms is not None:
-                cfg.last_ping_latency_ms = body.local_latency_ms
+        if not cfg:
+            cfg = AiRuntimeConfig(
+                llm_base_url=target_url,
+                llm_model_name=target_model,
+                provider="OLLAMA",
+                strict_neural_mode=False,
+                timeout_seconds=25.0,
+                last_ping_status=req.node_status or "ONLINE",
+                last_ping_at=now,
+            )
+            db.add(cfg)
+        else:
+            cfg.llm_base_url = target_url
+            cfg.llm_model_name = target_model
+            cfg.last_ping_status = req.node_status or "ONLINE"
             cfg.last_ping_at = now
+            cfg.updated_at = now
             current_strict = cfg.strict_neural_mode
-            await db.commit()
+
+        await db.commit()
+        await db.refresh(cfg)
     except Exception as err:
-        logger.debug(f"Error procesando ping del nodo: {err}")
+        logger.error(f"[AI Node Ping] Error actualizando ai_runtime_config: {err}", exc_info=True)
+
+    # 2. Hacer ping en vivo hacia el túnel estático
+    ping_result = await LocalLlmEngine.ping_tunnel(llm_base_url=target_url, timeout=6.0)
+    is_online = ping_result.get("online", False)
+    latency_ms = ping_result.get("latency_ms")
+
+    # 3. Guardar estado verificado
+    if cfg:
+        try:
+            cfg.last_ping_status = "ONLINE" if is_online else "OFFLINE"
+            if latency_ms is not None:
+                cfg.last_ping_latency_ms = latency_ms
+            await db.commit()
+        except Exception:
+            pass
 
     return AiNodePingResponse(
         acknowledged=True,
+        online=is_online,
+        llm_base_url=target_url,
+        model_name=target_model,
+        latency_ms=latency_ms,
         received_at=now.isoformat(),
         current_strict_mode=current_strict,
     )

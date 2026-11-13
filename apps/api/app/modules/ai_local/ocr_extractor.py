@@ -63,11 +63,19 @@ async def extract_id_card_from_text(
     )
 
     # Verificación final de integridad regex determinista
+    fallback_res = fallback_extract_id_card(cleaned_text)
     if not result.ci or result.ci == "CI-PENDIENTE":
-        fallback_res = fallback_extract_id_card(cleaned_text)
         if fallback_res.ci and fallback_res.ci != "CI-PENDIENTE":
             result.ci = fallback_res.ci
-            result.regex_valid = fallback_res.regex_valid
+
+    if not result.fecha_nacimiento and fallback_res.fecha_nacimiento:
+        result.fecha_nacimiento = fallback_res.fecha_nacimiento
+
+    # Validar coherencia por expresiones regulares de forma determinista
+    ci_clean = re.sub(r"[^\w-]", "", result.ci or "").upper()
+    ci_ok = bool(re.search(r"[0-9]{5,10}", ci_clean))
+    names_ok = bool(result.nombres and len(result.nombres.strip()) >= 2)
+    result.regex_valid = bool(ci_ok and names_ok)
 
     result.requires_voter_confirmation = True
     return result

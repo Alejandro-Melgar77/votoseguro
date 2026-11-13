@@ -6,5 +6,9 @@ echo   VOTOSEGURO v2.0 - INICIADOR DE 1-CLIC DE IA LOCAL Y TUNEL ESTATICO NGROK
 echo ===============================================================================
 echo.
 cd /d "%~dp0"
-powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\start_static_ai_tunnel.ps1"
+if exist "votoseguro\scripts\start_static_ai_tunnel.ps1" (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "votoseguro\scripts\start_static_ai_tunnel.ps1"
+) else (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\start_static_ai_tunnel.ps1"
+)
 pause
