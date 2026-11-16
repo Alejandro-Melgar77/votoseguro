@@ -47,6 +47,11 @@ async def get_election_participation(
     response_model=ElectionResultsResponse,
     status_code=status.HTTP_200_OK,
 )
+@router.get(
+    "/results/{election_id}",
+    response_model=ElectionResultsResponse,
+    status_code=status.HTTP_200_OK,
+)
 async def get_election_results(
     election_id: uuid.UUID,
     tenant: Annotated[TenantContext, Depends(get_tenant_context)],

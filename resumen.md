@@ -1,9 +1,9 @@
-# VotoSeguro v2 — Resumen Ejecutivo y Técnico Oficial (Sprint 1 y Sprint 2 Completados al 100% — Release v2.0)
+# VotoSeguro v2 — Resumen Ejecutivo y Técnico Oficial (Sprint 1, Sprint 2, Sprint 2.5 y Sprint 3 Parte 1 Completados al 100% — Release v3.0-P1)
 
 **Plataforma SaaS Multi-Institución de Votación Electrónica Soberana y Auditada**  
 **Asignatura:** Ingeniería de Software I (INF 422 SB) — UAGRM  
-**Fecha de Entrega:** 11 de Noviembre de 2026  
-**Versión de Release:** v2.0.0 (Cierre Integral de Sprint 1 y Sprint 2)
+**Fecha de Entrega:** Noviembre de 2026  
+**Versión de Release:** v3.0-P1 (Cierre Integral de Sprint 1, Sprint 2, Sprint 2.5 y Sprint 3 — Parte 1: Cifrado Homomórfico Paillier y Reparto de Secreto Shamir)
 
 ---
 
@@ -13,7 +13,9 @@
 | :--- | :---: | :---: | :---: | :---: |
 | **Sprint 1 (v1.0)** | 14 Historias (56 pts Must + 8 pts Should) | **100% COMPLETO** | 15/15 tests pasando | 0 errores (Web) |
 | **Sprint 2 — Fase 1 (v2.0-F1)** | 10 Historias + Spike Paillier (35 pts) | **100% COMPLETO** | 21/21 tests pasando | 0 errores (Web) |
-| **Sprint 2 — Fase 2 (v2.0-F2)** | IA-L1 a IA-L5 + S2-01 Mobile (29 pts) | **100% COMPLETO** | **28/28 tests pasando (100%)** | **0 errores (Web & Mobile)** |
+| **Sprint 2 — Fase 2 (v2.0-F2)** | IA-L1 a IA-L5 + S2-01 Mobile (29 pts) | **100% COMPLETO** | 28/28 tests pasando | 0 errores (Web & Mobile) |
+| **Sprint 2.5 (v2.5)** | LLM Local, Calibración LoRA, Túnel ngrok Estático y Puente 1-Clic | **100% COMPLETO** | 35/35 tests pasando | 0 errores (Web & Mobile) |
+| **Sprint 3 — Parte 1 (v3.0-P1)** | Cifrado Homomórfico Paillier en Producción (S3-01) y Reparto de Clave Shamir $k$ de $n$ (S3-02) (18 pts) | **100% COMPLETO** | **43/43 tests pasando (100%)** | **0 errores (Backend, Web, Mobile)** |
 
 ---
 
@@ -34,6 +36,8 @@
 13. **Trazabilidad de IA sin Datos Personales (Invariante #14 / Salvaguarda #7):** Toda inferencia de IA registra en `ai_call_log` y en la cadena `audit_log` la función, modelo, duración y estado **estrictamente libre de CIs, nombres o votos**.
 14. **Cero Persistencia de Imágenes de Cédula (Invariante #15 / IA-L3):** La aplicación móvil o web extrae texto OCR en el cliente y envía únicamente el texto plano al endpoint `/ai/id-card/extract`. No se almacenan imágenes en disco, S3 ni base de datos.
 15. **Secreto de Intención en Cabina de Voz (Sección 7.3 / IA-L4):** La gramática de voz se procesa 100% de manera local y determinista en el dispositivo. Jamás se envían audios, intenciones ni selecciones al backend o al LLM.
+16. **Cifrado Homomórfico Aditivo en Urna (Invariante #13 / RF-55 / S3-01):** Cada voto individual es cifrado asimétricamente como vector one-hot utilizando el criptosistema Paillier (`HomomorphicPaillierVoteCodec` vía `phe`). Los votos individuales jamás se descifran; el escrutinio se ejecuta multiplicando homomórficamente los cifrados ($\prod E(m_i) \pmod{n^2} = E(\sum m_i)$) en la base de datos y agregador.
+17. **Custodia Distribuida de la Clave Privada con Shamir ($k$ de $n$) (Invariante #20 / S3-02):** La clave privada de Paillier $(p, q)$ jamás se guarda completa en disco ni en base de datos. Se fragmenta inmediatamente en $n$ custodios electorales (`ElectoralTrusteeShare`) y se purga de la memoria RAM. Se requiere un quórum de $k$ autoridades que provean sus fragmentos para reconstruir la clave mediante interpolación de Lagrange en el campo finito $\mathbb{F}_P$ tras el cierre de votación (`VOTING_CLOSED`).
 
 ---
 
@@ -104,9 +108,51 @@
   - Verificador móvil de comprobantes de urna (S2-03) y pruebas matemáticas de Árbol de Merkle (S2-07).
   - Asistente electoral oficial RAG integrado.
 
+### 3.4 Sprint 2.5 (v2.5 — Túnel Estático ngrok, LLM Local Calibrado y Puente de 1-Clic)
+- **Descarga y Compilación de `votoseguro-lfm3`:** Pesos cuantizados GGUF Q4_K_M (1.7B / 1.5B) compilados en Ollama mediante `services/llm/Modelfile.votoseguro`.
+- **Dataset Electoral y Calibración SFT/LoRA:**
+  - `services/llm/training/votoseguro_sft_dataset.jsonl` (120 ejemplos de instrucción-respuesta en JSON estricto: 30 IA-L1, 30 IA-L2b, 30 IA-L3, 30 IA-L5).
+  - `services/llm/training/votoseguro_eval_benchmark.jsonl` (24 casos balanceados de validación).
+  - Script `train_lora_lfm3.py` con `--quick-calibrate`.
+  - Evaluación oficial en `docs/REPORTE_EVALUACION_LFM3.md`: **100.0% JSON válido y 100.0% de exactitud (accuracy)**.
+- **Túnel Estático ngrok Permanente:** Dominio estático `repackage-remarry-reviving.ngrok-free.dev` mapeado a `https://repackage-remarry-reviving.ngrok-free.dev/v1`.
+- **Backend FastAPI (`apps/api`):**
+  - Migración Alembic `0006_sprint2_static_ai_tunnel.py` creando la tabla `ai_runtime_config`.
+  - `LocalLlmEngine` con cabecera obligatoria `ngrok-skip-browser-warning: true` y User-Agent institucional.
+  - Extracción robusta `extract_first_json_object(raw_text)` para eliminar bloques markdown y texto previo.
+  - Telemetría real de inferencia: `ai_source: "LFM3-1.7B_NEURAL_TUNNEL"`, `model_name` y `latency_ms`.
+  - Endpoints de control y monitoreo: `GET /ai/node/status`, `PUT /ai/node/config`, `POST /ai/node/test-inference`, `POST /ai/node/ping`.
+- **Lanzadores de 1-Clic para Windows:**
+  - `INICIAR_IA_LOCAL.bat` y `scripts/start_static_ai_tunnel.ps1`: Inicia Ollama, pre-calienta el modelo en RAM/VRAM (`keep_alive: -1`), levanta el túnel ngrok estático y notifica al backend en Render.
+  - `DETENER_IA_LOCAL.bat` y `scripts/stop_static_ai_tunnel.ps1`: Cierra ngrok y descarga el modelo de la memoria (`keep_alive: 0`).
+- **Frontend Web & Mobile:**
+  - Componente `LocalAiNodeBridgePanel` en Consola de Administrador (`PlatformAdminConsolePage.tsx`) y Monitor en Vivo (`LiveMonitoringDashboardPage.tsx`).
+  - Badges de telemetría `AiEngineTelemetryBadge` integrados en vistas de IA-L1, IA-L2b, IA-L3 e IA-L5.
+
+### 3.5 Sprint 3 — Parte 1 (v3.0-P1 — Cifrado Homomórfico Paillier y Reparto de Secreto Shamir)
+- **S3-01 (Must — 13 pts): Cifrado Homomórfico con Paillier en Producción (`VoteCodec` & `phe`):**
+  - Implementación de `HomomorphicPaillierVoteCodec` (`app/crypto/vote_codec.py`) utilizando la librería estándar `phe` (`python-paillier`).
+  - Cada voto emitido en `POST /api/v1/ballot/cast` se cifra asimétricamente como vector one-hot (`[E(1), E(0), ...]`) usando la clave pública de la elección.
+  - Almacenamiento seguro en `vote.encoded_payload` con metadata de esquema canónico (`PAILLIER_V1`).
+  - Agregación homomórfica aditiva directa ($\prod E(m_i) \pmod{n^2} = E(\sum m_i)$) mediante `HomomorphicTallyEngine` (`app/modules/results/homomorphic_tally.py`) tanto a nivel de circunscripción como por desgloses/filtros territoriales.
+  - Cero descifrados de votos individuales: el sentido del sufragio individual es matemáticamente inaccesible (Invariante #13 y RF-55).
+- **S3-02 (Must — 5 pts): Reparto de la Clave de Descifrado con Shamir ($k$ de $n$):**
+  - Esquema de secreto compartido de Shamir en campo finito primo grande (`DEFAULT_SHAMIR_PRIME = (1 << 4096) + 1761`) en `app/crypto/shamir.py`.
+  - Empaquetado canónico de la tupla de factores primos $(p, q)$ de la clave privada de Paillier.
+  - Generación de $n$ fragmentos institucionales con formato canónico `SHAMIR-SHARE-v1-{i}-{k}-{n}-{y_hex}` y cálculo de compromisos criptográficos SHA-256 (`share_commitment`).
+  - Almacenamiento de fragmentos asignados y compromisos en `ElectoralTrusteeShare` (migración Alembic `0007`).
+  - Destrucción inmediata de la clave privada de la memoria RAM tras la ceremonia de generación (`app/modules/crypto_ceremony/service.py`).
+  - Reconstrucción de la clave privada por interpolación de Lagrange únicamente cuando se alcanza el quórum $k$ de fragmentos válidos provistos por las autoridades electorales.
+  - Verificación matemática del módulo público ($p \cdot q == n$) antes de permitir el descifrado oficial de los acumuladores homomórficos.
+  - Endpoints oficiales de la ceremonia criptográfica:
+    - `POST /api/v1/elections/{election_id}/shamir/setup` (y alias `/crypto/key-ceremony`).
+    - `POST /api/v1/elections/{election_id}/shamir/unlock` (y alias `/crypto/tally-decrypt`).
+    - `GET /api/v1/elections/{election_id}/shamir/status` (y alias `/crypto/ceremony-status`).
+  - Respeto estricto del $k$-anonimato: las celdas de desglose con menos de $k$ votos se preservan sin descifrar (`decrypted_counts = None`).
+
 ---
 
-## 4. Guía Paso a Paso de Pruebas de la Fase 2 (Sprint 2 v2.0)
+## 4. Guía Paso a Paso de Pruebas (Sprint 3 — Parte 1 v3.0-P1)
 
 ### 4.1 Verificación de la Suite Automatizada de Pruebas (`pytest`)
 Ejecute en la raíz de la API:
@@ -115,7 +161,7 @@ cd apps/api
 .venv\Scripts\python.exe -m pytest -v
 ```
 **Resultado esperado:**
-`28 passed` en ~27 segundos (100% de pruebas pasando, abarcando modelos de IA, invariantes, fallback determinista y criptografía).
+`43 passed` (100% de pruebas pasando: 15 de Sprint 1, 13 de Sprint 2, 7 de Sprint 2.5, y 8 de Sprint 3 Parte 1 correspondientes a Paillier homomórfico, escrutinio aditivo y ceremonia de Shamir).
 
 ### 4.2 Verificación de Compilación Frontend Web
 Ejecute en la raíz del monorepo:

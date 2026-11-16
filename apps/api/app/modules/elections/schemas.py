@@ -63,6 +63,14 @@ class ElectionResponse(BaseModel):
     published_at: datetime | None
     registration_frozen_at: datetime | None
     voting_closed_at: datetime | None
+    encryption_scheme: str = "PAILLIER_HOMOMORPHIC"
+    paillier_public_n: str | None = None
+    paillier_key_size: int = 1024
+    shamir_threshold_k: int = 3
+    shamir_total_n: int = 5
+    key_ceremony_hash: str | None = None
+    tally_ceremony_hash: str | None = None
+    biometric_verification_mode: str = "OPTIONAL"
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime

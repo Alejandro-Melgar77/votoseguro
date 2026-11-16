@@ -1,6 +1,7 @@
 """
 Servicio de Negocio para Cabina de Votación, Papeleta Automática y Emisión Atómica (S1-09)
 """
+from datetime import datetime, timezone
 import secrets
 import uuid
 from sqlalchemy import func, select
@@ -20,8 +21,17 @@ from app.core.security import create_voter_token
 from app.core.time import TimeProvider, ensure_utc
 from app.crypto.hashing import canonical_json, compute_receipt_hash, sha256_hex
 from app.crypto.nullifier import compute_nullifier
+import json
+import phe.paillier as paillier
+from app.crypto.shamir import (
+    DEFAULT_SHAMIR_PRIME,
+    compute_share_commitment,
+    format_share,
+    pack_paillier_private_key,
+    split_secret,
+)
 from app.crypto.vote_codec import default_vote_codec
-from app.db.models.election import Election, ElectionStatus
+from app.db.models.election import Election, ElectionStatus, ElectoralTrusteeShare
 from app.db.models.structure import Candidate, Constituency, Contest, UnitNode, VoterGroup
 from app.db.models.voter import Voter, VoterStatus
 from app.db.models.voting import Vote, VoteChoiceType, VoterParticipation, VotingCredential
@@ -489,6 +499,42 @@ class BallotService:
         nullifiers: list[str] = []
         votes_to_insert: list[Vote] = []
 
+        # Inicializar o resolver clave pública Paillier para la elección (S3-01)
+        paillier_pk = None
+        if election.paillier_public_n:
+            try:
+                paillier_pk = paillier.PaillierPublicKey(int(election.paillier_public_n))
+            except Exception:
+                paillier_pk = None
+        elif election.encryption_scheme == "PAILLIER_HOMOMORPHIC":
+            key_size = election.paillier_key_size or 1024
+            pub, priv = paillier.generate_paillier_keypair(n_length=key_size)
+            election.paillier_public_n = str(pub.n)
+            election.paillier_public_key = json.dumps({"n": str(pub.n), "key_size": key_size})
+            election.shamir_prime_modulus = str(DEFAULT_SHAMIR_PRIME)
+            # Fragmentar con Shamir y registrar compromisos
+            secret_s = pack_paillier_private_key(priv.p, priv.q)
+            shares = split_secret(secret_s, election.shamir_threshold_k or 3, election.shamir_total_n or 5)
+            for x_val, y_val in shares:
+                token = format_share(x_val, election.shamir_threshold_k or 3, election.shamir_total_n or 5, y_val)
+                commit = compute_share_commitment(election.id, x_val, y_val)
+                db.add(
+                    ElectoralTrusteeShare(
+                        organization_id=election.organization_id,
+                        election_id=election.id,
+                        share_index=x_val,
+                        trustee_name=f"Vocal {x_val} - Custodio Institucional",
+                        trustee_email=f"vocal{x_val}@corte.edu.bo",
+                        commitment_hash=commit,
+                        demo_share_token=token,
+                        submitted_for_tally=False,
+                        created_at=datetime.now(timezone.utc),
+                    )
+                )
+            paillier_pk = pub
+            del priv
+            del secret_s
+
         for selection in payload.selections:
             contest_section = expected_constituencies[selection.constituency_id]
 
@@ -521,10 +567,20 @@ class BallotService:
 
             nullifiers.append(nullifier)
 
-            # Invariante #13: Codificación de voto
+            # Opciones canónicas de la circunscripción
+            sorted_cands = sorted(contest_section.candidates, key=lambda c: getattr(c, "ballot_order", 0))
+            option_keys = [str(c.id) for c in sorted_cands]
+            if contest_section.allow_blank:
+                option_keys.append("BLANK")
+            if contest_section.allow_null:
+                option_keys.append("NULL")
+
+            # Invariante #13: Codificación / Cifrado Homomórfico del voto (S3-01)
             encoded_payload = default_vote_codec.encode(
                 selection.choice_type.value,
                 selection.candidate_id,
+                public_key=paillier_pk,
+                option_keys=option_keys,
             )
 
             # Invariante #9: Creación de fila en 'vote' SIN voter_id

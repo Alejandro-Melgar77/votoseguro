@@ -4,6 +4,7 @@ Servicio de Publicación, Validación de Consistencia de 6 Reglas y Cálculo de 
 import hashlib
 import json
 import uuid
+import phe.paillier as paillier
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -14,8 +15,16 @@ from app.core.exceptions import (
     UnprocessableEntityException,
 )
 from app.core.time import TimeProvider
+from app.crypto.hashing import canonical_json, sha256_hex
+from app.crypto.shamir import (
+    DEFAULT_SHAMIR_PRIME,
+    compute_share_commitment,
+    format_share,
+    pack_paillier_private_key,
+    split_secret,
+)
 from app.db.models.audit import AuditLog
-from app.db.models.election import Election, ElectionStatus
+from app.db.models.election import Election, ElectionStatus, ElectoralTrusteeShare
 from app.db.models.structure import (
     Candidate,
     Constituency,
@@ -357,6 +366,44 @@ class PublicationService:
             canonical_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
         ).encode("utf-8")
         config_hash = hashlib.sha256(canonical_bytes).hexdigest()
+
+        # =====================================================================
+        # Inicialización Criptográfica Paillier y Shamir (S3-01 y S3-02)
+        # =====================================================================
+        if election.encryption_scheme == "PAILLIER_HOMOMORPHIC" and not election.paillier_public_n:
+            key_size = election.paillier_key_size or 1024
+            pub, priv = paillier.generate_paillier_keypair(n_length=key_size)
+            election.paillier_public_n = str(pub.n)
+            election.paillier_public_key = json.dumps({"n": str(pub.n), "key_size": key_size})
+            election.shamir_prime_modulus = str(DEFAULT_SHAMIR_PRIME)
+            secret_s = pack_paillier_private_key(priv.p, priv.q)
+            shares = split_secret(secret_s, election.shamir_threshold_k or 3, election.shamir_total_n or 5)
+            commitments_for_hash = []
+            for x_val, y_val in shares:
+                token = format_share(x_val, election.shamir_threshold_k or 3, election.shamir_total_n or 5, y_val)
+                commit = compute_share_commitment(election.id, x_val, y_val)
+                db.add(
+                    ElectoralTrusteeShare(
+                        organization_id=election.organization_id,
+                        election_id=election.id,
+                        share_index=x_val,
+                        trustee_name=f"Vocal {x_val} - Custodio Institucional",
+                        trustee_email=f"vocal{x_val}@corte.edu.bo",
+                        commitment_hash=commit,
+                        demo_share_token=token,
+                        submitted_for_tally=False,
+                        created_at=db_now,
+                    )
+                )
+                commitments_for_hash.append({"share_index": x_val, "commitment_hash": commit})
+            act_payload = {
+                "election_id": str(election.id),
+                "paillier_public_n": str(pub.n),
+                "commitments": commitments_for_hash,
+            }
+            election.key_ceremony_hash = sha256_hex(canonical_json(act_payload))
+            del priv
+            del secret_s
 
         # =====================================================================
         # Congelamiento y Transición de Estado

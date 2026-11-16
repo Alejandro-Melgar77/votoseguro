@@ -19,6 +19,10 @@ from app.db.models.election import (
     Election,
     ScheduleChange,
     ElectionStatus,
+    ElectoralTrusteeShare,
+    HomomorphicTallyCell,
+    ExecutiveReport,
+    BiometricVerificationAudit,
 )
 from app.db.models.structure import (
     VoterGroup,
@@ -72,6 +76,10 @@ __all__ = [
     "Election",
     "ScheduleChange",
     "ElectionStatus",
+    "ElectoralTrusteeShare",
+    "HomomorphicTallyCell",
+    "ExecutiveReport",
+    "BiometricVerificationAudit",
     "VoterGroup",
     "HierarchyLevel",
     "UnitNode",

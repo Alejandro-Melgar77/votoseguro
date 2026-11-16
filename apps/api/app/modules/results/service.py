@@ -13,7 +13,7 @@ from app.core.exceptions import (
     NotFoundException,
 )
 from app.core.time import TimeProvider
-from app.db.models.election import Election, ElectionStatus
+from app.db.models.election import Election, ElectionStatus, HomomorphicTallyCell
 from app.db.models.structure import (
     BreakdownKind,
     Candidate,
@@ -333,6 +333,20 @@ class ResultsService:
                             blank_count += 1
                         elif v.choice_type == VoteChoiceType.NULL:
                             null_count += 1
+
+                    # S3-01: Si la elección fue descifrada por escrutinio homomórfico oficial, conciliar con celdas
+                    stmt_tally_cell = select(HomomorphicTallyCell).where(
+                        HomomorphicTallyCell.constituency_id == const.id,
+                        HomomorphicTallyCell.cell_scope_type == "CONSTITUENCY_TOTAL",
+                        HomomorphicTallyCell.cell_key == "TOTAL",
+                    )
+                    tally_cell = (await db.execute(stmt_tally_cell)).scalar_one_or_none()
+                    if tally_cell and tally_cell.decrypted_counts:
+                        total_cast = tally_cell.ballots_aggregated
+                        for c in const.candidates:
+                            cand_counts[c.id] = tally_cell.decrypted_counts.get(str(c.id), 0)
+                        blank_count = tally_cell.decrypted_counts.get("BLANK", 0)
+                        null_count = tally_cell.decrypted_counts.get("NULL", 0)
 
                     candidates_total = sum(cand_counts.values())
                     exact_match = (candidates_total + blank_count + null_count == total_cast)
