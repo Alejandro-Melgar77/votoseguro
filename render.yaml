@@ -41,3 +41,9 @@ services:
         value: "votoseguro-lfm3"
       - key: LLM_TIMEOUT_SECONDS
         value: "25.0"
+      - key: GEMINI_MODEL
+        value: "gemini-2.5-flash"
+      - key: AI_EXTERNAL_ENABLED
+        value: "true"
+      - key: GEMINI_TIMEOUT_SECONDS
+        value: "20.0"
