@@ -1,0 +1,92 @@
+{
+  "_meta": {
+    "language": "qu",
+    "name": "Quechua",
+    "native_name": "Runasimi",
+    "review_status": "PENDING_NATIVE_REVIEW"
+  },
+  "nav": {
+    "home": "Qallariy",
+    "login": "Yaykuy",
+    "register": "Qillqakuy",
+    "vote": "Akllay",
+    "verify_receipt": "Tupunata qhaway",
+    "audit_portal": "Qhawaypa kiti",
+    "workspace": "Akllanapaq kiti",
+    "console": "Kamachiqpa kiti",
+    "ceremony": "Kripto Raymi",
+    "manual": "Yachachiq Qillqa"
+  },
+  "banner": {
+    "title": "VotoSeguro v2 — Suyunchikpa Akllanan",
+    "verified_integrity": "Kriptopaq allin kaynin qhawasqa",
+    "secure_session": "Tukuy llank'ay pakasqa",
+    "official_sovereignty": "Llaqtapa kamachiynin takyasqa"
+  },
+  "booth": {
+    "title": "Akllanapaq Wasi",
+    "subtitle": "Paillier homomórfico nisqawan pakasqa akllay",
+    "select_candidate": "Sapanka kamachiypaq hukta akllay",
+    "candidate": "Akllasqa runa",
+    "blank_vote": "Yuraq Voto",
+    "null_vote": "Mana chaninchasqa Voto",
+    "blank_desc": "Manam mayqen runatapas akllanichu",
+    "null_desc": "Kikiykipi akllayniyta qulluchini",
+    "selected": "Akllasqa",
+    "select_option": "Kayta akllay",
+    "next_contest": "Qatiq Kamachiy",
+    "prev_contest": "Ñawpaq Kamachiy",
+    "review_ballot": "Akllana Qillqata Qhaway",
+    "confirm_vote_title": "¿Tukuypaqchu akllayniykita kachanki?",
+    "confirm_vote_desc": "Kachasqaykiwan, akllayniyiki pakasqa kanqa Paillierwan mana pipas yachananchispaq.",
+    "emit_button": "Akllayta Kachay",
+    "cancel_button": "Kutiy allchanapaq",
+    "casting": "Pakaspa churachkan urna ukhuman...",
+    "success_title": "¡Allillamanta akllakusqaña!",
+    "receipt_title": "Kriptopaq Akllana Tupuna",
+    "receipt_hash": "Tupunapaq Hashnin",
+    "copy_receipt": "Tupunata qillqay",
+    "verify_receipt_button": "Urnapi Tupunata Qhaway"
+  },
+  "verifier": {
+    "title": "Tupuna Qhawaq",
+    "subtitle": "Yachay akllayniyiki urnapi kashasqanta",
+    "input_label": "Tupunapaq hash nisqata churay",
+    "verify_button": "Qhaway",
+    "valid": "Tupuna allin kashan urnapi",
+    "invalid": "Tupuna mana tarisqachu utaq hukchasqa"
+  },
+  "audit": {
+    "title": "Llaqtapaq Qhawaypa Kiti",
+    "subtitle": "Mana yaykuspa qhaway: cripto sellokuna, pacha, chaninchasqakuna",
+    "select_election": "Huk Akllayta Akllay",
+    "config_seal": "Wakichiypaq Sellon (config_hash)",
+    "roll_seal": "Padrón nisqapaq Sellon (roll_hash)",
+    "merkle_root": "Merkle Sach'apa Saphi",
+    "votes_chain": "Akllanakunapa Waskhan (Ledger)",
+    "audit_chain": "Qhawanapaq Waskha",
+    "ceremony_status": "Paillier / Shamir Raymi",
+    "schedule_history": "Pacha tikrasqakunapa willaynin",
+    "results_title": "Tukuy Akllaypa Chaninchasqankuna",
+    "k_anonymity_notice": "Pakasqa kay k-Anonimato nisqawan (k=5)",
+    "sealed_integrity": "Kripto Sello Takyasqa"
+  },
+  "ceremony": {
+    "title": "Kriptopaq Raymi: Llavekuna ch'iqiy",
+    "subtitle": "Paillier llavekuna, Shamir rakiy (k de n) quórumwan kichariy",
+    "setup_title": "1 Piti: Llavekuna Paqarichiy hinaspa Rakiynin",
+    "setup_desc": "Paillier llavekunata paqarichispa n pitikunaman ch'iqin.",
+    "unlock_title": "2 Piti: Kichariy hinaspa Escrutinio Quórumwan",
+    "unlock_desc": "K pitikunata churay akllaykunata t'ikranapaq.",
+    "execute_setup": "Raymita Qallariy",
+    "execute_unlock": "Quórumwan Kichariy"
+  },
+  "common": {
+    "loading": "Suyay, willakuykuna hamuchkan...",
+    "error": "Pantasqam rikhurin",
+    "save": "Waqaychay",
+    "close": "Wichq'ay",
+    "language": "Simi",
+    "native_review_notice": "Gemini nisqawan t'ikrasqa — Runasimi rimaqwan qhawana kashan."
+  }
+}

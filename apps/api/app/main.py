@@ -32,7 +32,9 @@ from app.modules.results.router import router as results_router
 from app.modules.structure.router import router as structure_router
 from app.modules.voters.router import router as voters_router
 from app.modules.ai_local.router import router as ai_local_router
+from app.modules.ai_external.router import router as ai_external_router
 from app.modules.crypto_ceremony.router import router as crypto_ceremony_router
+from app.modules.public_audit.router import router as public_audit_router
 from app.modules.scheduler.transition_service import run_scheduler_tick
 
 logging.basicConfig(
@@ -143,7 +145,9 @@ app.include_router(audit_router, prefix=api_v1_prefix)
 app.include_router(integrity_router, prefix=api_v1_prefix)
 app.include_router(realtime_router, prefix=api_v1_prefix)
 app.include_router(ai_local_router, prefix=api_v1_prefix)
+app.include_router(ai_external_router, prefix=api_v1_prefix)
 app.include_router(crypto_ceremony_router, prefix=api_v1_prefix)
+app.include_router(public_audit_router, prefix=api_v1_prefix)
 
 
 @app.get("/api/v1/health", status_code=status.HTTP_200_OK, tags=["Salud"])

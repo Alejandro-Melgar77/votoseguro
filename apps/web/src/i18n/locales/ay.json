@@ -1,0 +1,92 @@
+{
+  "_meta": {
+    "language": "ay",
+    "name": "Aymara",
+    "native_name": "Aymar Aru",
+    "review_status": "PENDING_NATIVE_REVIEW"
+  },
+  "nav": {
+    "home": "Qallta",
+    "login": "Mantantaña",
+    "register": "Qillqayasiña",
+    "vote": "Ajlliña",
+    "verify_receipt": "Wanka uñjaña",
+    "audit_portal": "Uñjañ thakhi",
+    "workspace": "Ajlliñ uta",
+    "console": "Irpiri kiti",
+    "ceremony": "Kripto Ipxa",
+    "manual": "Yatichäwi Pankha"
+  },
+  "banner": {
+    "title": "VotoSeguro v2 — Markasan Ajlliñapa",
+    "verified_integrity": "Kripto sumankaña uñjata",
+    "secure_session": "Lurawi imata chimpuntaña",
+    "official_sovereignty": "Markan munañapa qhananchata"
+  },
+  "booth": {
+    "title": "Ajlliña Kawki",
+    "subtitle": "Paillier homomórfico ukampi jani kawkiri qhant'asa ajlliña",
+    "select_candidate": "Mä ajllita churañani sapa lurawitaki",
+    "candidate": "Ajllita jaqi",
+    "blank_vote": "Janq'u Voto",
+    "null_vote": "T'unasita Voto",
+    "blank_desc": "Jani kawkiri jaqirus ajllikti",
+    "null_desc": "Ajlliñaxa t'unasitapuniwa aka lurañataki",
+    "selected": "Ajllita",
+    "select_option": "Aka ajlliña",
+    "next_contest": "Jutiri Lurawi",
+    "prev_contest": "Nayriri Lurawi",
+    "review_ballot": "Ajlliñ Pankha Uñjaña",
+    "confirm_vote_title": "¿Ajlliñama qhipa churawiti?",
+    "confirm_vote_desc": "Churxatataxa, ajlliñamaxa Paillier ukampi imantatäxiwa urna ukaru.",
+    "emit_button": "Ajlliña Churaña",
+    "cancel_button": "Kutt'aña Mayjachañataki",
+    "casting": "Imantasa urna manqharu apayaniwa...",
+    "success_title": "¡Ajlliñaxa sumapuni lurasiwayi!",
+    "receipt_title": "Kripto Ajlliñ Wanka",
+    "receipt_hash": "Wankan Hash ch'ikupa",
+    "copy_receipt": "Wanka apthapiña",
+    "verify_receipt_button": "Urnana Wanka Uñjaña"
+  },
+  "verifier": {
+    "title": "Wanka Uñjiri",
+    "subtitle": "Yatiñani ajlliñamaxa urnankatapa",
+    "input_label": "Wankan hash ch'iku uchata",
+    "verify_button": "Uñjaña",
+    "valid": "Wankaxa urnankxiwa sumapuni",
+    "invalid": "Wankaxa janiw jikxataskiti"
+  },
+  "audit": {
+    "title": "Jaqinakataki Uñjañ Kiti",
+    "subtitle": "Jan mantas uñjaña: sellonaka, pacha, t'aqanaka",
+    "select_election": "Mä Ajlliña Uñt'ayaña",
+    "config_seal": "Wakichawi Sello (config_hash)",
+    "roll_seal": "Padrón Sello (roll_hash)",
+    "merkle_root": "Merkle Saphin Ch'amaña",
+    "votes_chain": "Ajllitanakan Wiskha (Ledger)",
+    "audit_chain": "Uñjañan Wiskha",
+    "ceremony_status": "Paillier / Shamir Ipxa",
+    "schedule_history": "Pachanakan mayjachäwipa",
+    "results_title": "Taqpacha Ajlliñ Qhananchawi",
+    "k_anonymity_notice": "Imantata k-Anonimato ukampi (k=5)",
+    "sealed_integrity": "Kripto Sello Suma Qhananchata"
+  },
+  "ceremony": {
+    "title": "Kripto Ipxa: Llavenaka jaljaña",
+    "subtitle": "Paillier llavenaka, Shamir jaljaña (k de n) quórum ukampi",
+    "setup_title": "1 T'aqa: Llavenaka Luraña ukatxa Jaljaña",
+    "setup_desc": "Paillier llavenaka lurt'asa n t'aqanakar jaljawa.",
+    "unlock_title": "2 T'aqa: Quórum ukampi Ist'araña ukatxa Jakhuña",
+    "unlock_desc": "K t'aqanaka churañani ajllitanaka ist'arañataki.",
+    "execute_setup": "Ipxa Qalltaña",
+    "execute_unlock": "Quórum ukampi Ist'araña"
+  },
+  "common": {
+    "loading": "Suyt'aña, yatiyawinaka apayaniskiwa...",
+    "error": "Pantjasiwawa utji",
+    "save": "Imaña",
+    "close": "Jist'antaña",
+    "language": "Aru",
+    "native_review_notice": "Gemini ukampi jaqukipata — Aymar arsariri jaqin uñjapuniñapawa."
+  }
+}

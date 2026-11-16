@@ -48,12 +48,17 @@ class Settings(BaseSettings):
 
     # Feature flags y configuración para IA Local (Sprint 2 y Sprint 2.5 - Túnel Estático)
     AI_LOCAL_ENABLED: bool = True
-    AI_EXTERNAL_ENABLED: bool = False
+    AI_EXTERNAL_ENABLED: bool = True
     NGROK_STATIC_DOMAIN: str = "repackage-remarry-reviving.ngrok-free.dev"
     LLM_BASE_URL: str = "https://repackage-remarry-reviving.ngrok-free.dev/v1"
     LLM_MODEL_NAME: str = "votoseguro-lfm3"
     LLM_TIMEOUT_SECONDS: float = 25.0
     STRICT_NEURAL_MODE: bool = False
+
+    # Gemini External AI (Sprint 3 - IA-E1, IA-E2, IA-E3)
+    GEMINI_API_KEY: str = Field(default="")
+    GEMINI_MODEL: str = Field(default="gemini-2.5-flash")
+    GEMINI_TIMEOUT_SECONDS: float = Field(default=20.0)
 
     # Inspector de Credenciales de Demostración (Sprint 1)
     DEMO_CREDENTIAL_INSPECTOR_ENABLED: bool = True

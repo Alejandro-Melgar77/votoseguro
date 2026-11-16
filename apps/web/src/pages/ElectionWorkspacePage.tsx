@@ -12,6 +12,9 @@ import {
   Layers,
   Award,
   UserCheck,
+  Key,
+  Shield,
+  FileText,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
@@ -160,7 +163,7 @@ export const ElectionWorkspacePage: React.FC = () => {
               </div>
 
                 {/* Accesos Rápidos Modulares */}
-                <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-stone-100 text-2xs font-semibold">
+                <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-stone-100 text-2xs font-semibold">
                   <Link
                     to={`/elections/${election.id}/structure`}
                     className="p-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 hover:border-civic-navy-900/30 text-stone-700 flex items-center space-x-1 transition-colors"
@@ -183,6 +186,14 @@ export const ElectionWorkspacePage: React.FC = () => {
                   >
                     <UserCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                     <span className="truncate">Padrón</span>
+                  </Link>
+
+                  <Link
+                    to={`/elections/${election.id}/ceremony`}
+                    className="p-1.5 rounded-lg border border-amber-200 bg-amber-50/50 hover:bg-amber-100/60 text-amber-900 flex items-center space-x-1 transition-colors"
+                  >
+                    <Key className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span className="truncate">Ceremonia</span>
                   </Link>
                 </div>
 

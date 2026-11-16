@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Send, CheckCircle2, AlertCircle, Building, Calendar, Mail, User, Phone, FileText } from 'lucide-react';
+import { Shield, Send, CheckCircle2, AlertCircle, Building, Calendar, Mail, User, Phone, FileText, Layers, ExternalLink } from 'lucide-react';
 import { api } from '@/lib/api';
+import { LanguageSwitcher } from '@/components/electoral/LanguageSwitcher';
 import type { ElectionRequestCreate, OrganizationType } from '@votoseguro/api-client';
 
 export const PublicLandingRequestPage: React.FC = () => {
@@ -51,12 +52,32 @@ export const PublicLandingRequestPage: React.FC = () => {
           </div>
         </div>
 
-        <Link
-          to="/login"
-          className="px-4 py-2 bg-civic-navy-800 hover:bg-civic-navy-700 text-xs font-semibold rounded-lg text-white transition-colors border border-civic-navy-700 shadow-sm"
-        >
-          Acceso Institucional
-        </Link>
+        <div className="flex items-center space-x-3">
+          <LanguageSwitcher />
+
+          <Link
+            to="/audit-portal"
+            className="text-xs font-semibold text-stone-300 hover:text-white flex items-center gap-1.5 transition-colors border-l border-civic-navy-800 pl-3"
+          >
+            <Shield className="w-3.5 h-3.5 text-amber-400" />
+            Portal de Auditoría (S3-03)
+          </Link>
+
+          <Link
+            to="/verify-receipt"
+            className="text-xs font-semibold text-stone-300 hover:text-white flex items-center gap-1.5 transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
+            Comprobantes
+          </Link>
+
+          <Link
+            to="/login"
+            className="px-4 py-2 bg-civic-navy-800 hover:bg-civic-navy-700 text-xs font-semibold rounded-lg text-white transition-colors border border-civic-navy-700 shadow-sm"
+          >
+            Acceso Institucional
+          </Link>
+        </div>
       </header>
 
       {/* Contenido Hero + Formulario */}

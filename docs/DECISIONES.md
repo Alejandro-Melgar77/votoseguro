@@ -208,3 +208,53 @@
   2. El lanzador pre-carga el modelo con `keep_alive: -1`, manteniéndolo residente en memoria RAM/VRAM.
   3. Las respuestas de inferencia reportan `ai_source: "LFM3-1.7B_NEURAL_TUNNEL"`, `model_name` y `latency_ms`.
   4. En el Frontend Web se expone el panel `LocalAiNodeBridgePanel` con semáforo de estado, toggle de modo estricto e inferencia en vivo, y badges visuales `AiEngineTelemetryBadge` en las vistas electorales.
+
+## ADR 023: Criptosistema Homomórfico Aditivo de Paillier y Cero Descifrados Individuales (S3-01)
+- **Fecha:** 2026-11-16
+- **Estado:** Aceptado
+- **Contexto:** Para garantizar el secreto inquebrantable del voto (Invariante #13), ningún voto individual debe ser descifrado en ningún momento de la elección, ni siquiera por los administradores de la base de datos o autoridades de mesa.
+- **Decisión:**
+  1. Se implementa en `app/crypto/paillier.py` el criptosistema homomórfico aditivo de Paillier puro en Python, utilizando enteros de precisión arbitraria.
+  2. Los votos se cifran individualmente como vectores one-hot con la clave pública $n$.
+  3. Durante el escrutinio, los votos cifrados se multiplican modularmente $c_1 \cdot c_2 \pmod{n^2}$, produciendo la suma cifrada $E(\sum m_i)$ por circunscripción en la tabla `homomorphic_tally_cell`.
+  4. Solo se descifra el total agregado acumulado tras el cierre de la votación, imposibilitando matemática y físicamente la revelación del sufragio individual.
+
+## ADR 024: Secreto Compartido de Shamir k-de-n en Campo Finito de 4097 Bits (S3-02)
+- **Fecha:** 2026-11-16
+- **Estado:** Aceptado
+- **Contexto:** La clave privada que descifra los acumuladores homomórficos no debe residir en poder de una sola persona ni guardarse en un archivo accesible en el servidor.
+- **Decisión:**
+  1. Se implementa `app/crypto/shamir.py` sobre el campo primo universal $\mathbb{F}_P$ con $P = 2^{4096} + 1761$, garantizando seguridad teórica de la información absoluta (perfect secrecy).
+  2. La clave privada $sk = (p, q)$ se divide en $n$ fragmentos polinómicos con umbral $k$, distribuidos a los custodios institucionales (`ElectoralTrusteeShare`).
+  3. Cada fragmento se protege con un compromiso SHA-256 inmutable registrado durante la ceremonia de apertura.
+  4. La reconstrucción de $sk$ exige un quórum de al menos $k$ fragmentos válidos tras el cierre formal de la votación. Cualquier intento con $k-1$ o menos fragmentos falla rotundamente.
+
+## ADR 025: Integración de IA Externa Gemini con Privacidad Estricta y Modo Degradado (Sprint 3 — Parte 2)
+- **Fecha:** 2026-11-16
+- **Estado:** Aceptado
+- **Contexto:** La generación de informes ejecutivos en lenguaje natural (IA-E1), la traducción a lenguas originarias (IA-E2) y la verificación facial asistida (IA-E3) requieren capacidades avanzadas de modelos fundacionales (Google Gemini), pero deben respetar rigurosamente la privacidad de los votantes (Invariante #14) y la disponibilidad continua del sistema sin bloqueos.
+- **Decisión:**
+  1. Se implementa `GeminiExternalClient` (`app/ai/gemini_client.py`) consumiendo la API REST oficial de Google Gemini exclusivamente desde el backend (FastAPI), nunca desde el frontend ni clientes móviles.
+  2. Modo Degradado Determinista: Si `GEMINI_API_KEY` está ausente o la API externa no responde en 20 segundos, el sistema conmuta automáticamente al fallback determinista local, marcando `ai_source = "DETERMINISTIC_FALLBACK"`.
+  3. Invariante #14: El informe ejecutivo oficial se genera única y exclusivamente sobre métricas agregadas (totales de padrón, participación por grupo, sellos de integridad, cambios de cronograma y resultados respetando $k$-anonimato). Jamás se transmiten CIs, nombres ni votos individuales a la IA externa.
+  4. Registro en `ai_call_log` y en la cadena de auditoría inmutable de todas las llamadas de IA externa sin almacenar datos sensibles.
+
+## ADR 026: Verificación Biométrica Selfie vs Cédula con Consentimiento y Cero Almacenamiento (Invariante #15)
+- **Fecha:** 2026-11-16
+- **Estado:** Aceptado
+- **Contexto:** La verificación de identidad asistida por IA multimodal (selfie vs cédula) debe evitar a toda costa la creación de bases de datos biométricas centralizadas que expongan a la ciudadanía a filtraciones o vigilancia no autorizada.
+- **Decisión:**
+  1. Consentimiento explícito obligatorio: La API rechaza inmediatamente con `HTTP 422 Unprocessable Content` si `consent_accepted: false`.
+  2. Procesamiento volátil en RAM: Las imágenes se procesan exclusivamente en memoria durante la inferencia y sus buffers se sobrescriben/eliminan de forma forzosa en un bloque `finally:`.
+  3. Invariante #15: Cero almacenamiento de imágenes en disco, base de datos ni servicios de storage en la nube.
+  4. Se audita únicamente el veredicto no biométrico en `biometric_verification_audit` con el hash del documento `sha256(document_id)`.
+  5. Alternativa de contingencia garantizada: El votante siempre tiene derecho a declinar la biometría y solicitar verificación manual o código de activación en mesa electoral.
+
+## ADR 027: Portal Público de Auditoría Integral Abierto sin Credenciales (S3-03)
+- **Fecha:** 2026-11-16
+- **Estado:** Aceptado
+- **Contexto:** La confianza pública en el sistema democrático requiere que cualquier ciudadano u observador electoral nacional o internacional pueda fiscalizar la integridad matemática de la elección sin necesidad de registrarse ni iniciar sesión.
+- **Decisión:**
+  1. Se exponen los endpoints públicos `GET /api/v1/public/audit/elections` y `GET /api/v1/public/audit/elections/{election_id}` protegidos por limitación de tasa `slowapi`.
+  2. El expediente público entrega: sellos canónicos (`config_hash`, `roll_hash`, `merkle_root`), verificación en tiempo real del encadenamiento de votos y auditoría (`votes_chain_valid`, `audit_chain_valid`), historial exhaustivo de cambios de cronograma (`schedule_change`) con fecha, autor y motivo oficial, y resultados por circunscripción con filtro de $k$-anonimato tras el cierre.
+  3. No se expone ningún dato personal ni voto individual en ningún campo del expediente.

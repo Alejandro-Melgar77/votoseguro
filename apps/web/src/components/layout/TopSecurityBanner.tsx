@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Shield, Clock, Globe, UserCheck, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/lib/auth-store';
 import { formatElectoralDateTime } from '@/lib/timezone';
+import { LanguageSwitcher } from '@/components/electoral/LanguageSwitcher';
 
 interface TopSecurityBannerProps {
   timezone?: string;
@@ -45,8 +46,10 @@ export const TopSecurityBanner: React.FC<TopSecurityBannerProps> = ({
         )}
       </div>
 
-      {/* Sección Derecha: Reloj Oficial y Zona Horaria */}
-      <div className="flex items-center space-x-4">
+      {/* Sección Derecha: Reloj Oficial, Zona Horaria y Selector Multi-idioma */}
+      <div className="flex items-center space-x-3">
+        <LanguageSwitcher />
+
         <div className="flex items-center space-x-1 text-stone-400">
           <Globe className="w-3.5 h-3.5 text-stone-400" />
           <span className="font-mono text-[11px]">{timezone}</span>

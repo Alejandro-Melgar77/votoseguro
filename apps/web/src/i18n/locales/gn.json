@@ -1,0 +1,92 @@
+{
+  "_meta": {
+    "language": "gn",
+    "name": "Guaraní",
+    "native_name": "Avañe'ẽ",
+    "review_status": "PENDING_NATIVE_REVIEW"
+  },
+  "nav": {
+    "home": "Ñepyrũha",
+    "login": "Eike",
+    "register": "Eñemboguapy",
+    "vote": "Eiporavo",
+    "verify_receipt": "Ehecha Kuatiahechauka",
+    "audit_portal": "Jehayhuha Renda",
+    "workspace": "Poravorã Renda",
+    "console": "Sãmbyhyha Renda",
+    "ceremony": "Kripto Nemongeta",
+    "manual": "Mbo'eha Kuatia"
+  },
+  "banner": {
+    "title": "VotoSeguro v2 — Tetã Poravorã Teko",
+    "verified_integrity": "Kripto Tekopotĩ Ojehechámava",
+    "secure_session": "Teko Ñemigua Oñangarekóva",
+    "official_sovereignty": "Tetãygua Mba'e Añetete"
+  },
+  "booth": {
+    "title": "Poravo Koty Ñemigua",
+    "subtitle": "Vóto ñemombe'u Paillier homomórfico reheve avave ndoikuaáivo",
+    "select_candidate": "Eiporavo peteĩ mba'apohára sapa tendápe g̃uarã",
+    "candidate": "Oñembo'ýva",
+    "blank_vote": "Vóto Morotĩ",
+    "null_vote": "Vóto Ndovaléiva",
+    "blank_desc": "Ndaiporavói avavépe ko jeporavópe",
+    "null_desc": "Che voi amboyke ko vóto",
+    "selected": "Oñeporavóva",
+    "select_option": "Eiporavo ko'ãva",
+    "next_contest": "Uperiregua Tenda",
+    "prev_contest": "Mboyvegua Tenda",
+    "review_ballot": "Ehecha Kuatia Jeporavorã",
+    "confirm_vote_title": "¿Emondosépa ne vóto añetehápe?",
+    "confirm_vote_desc": "Emondorire, ne vóto oñeñongatúta Paillier rupive urna kuápe avave ndoikuaái.",
+    "emit_button": "Emondo Vóto",
+    "cancel_button": "Ejevy Emoambue haguã",
+    "casting": "Oñeñongatu hína urna ryepýpe...",
+    "success_title": "¡Ne vóto oikoite porã!",
+    "receipt_title": "Vóto Kuatiahechauka Kriptográfico",
+    "receipt_hash": "Kuatiahechauka Hash",
+    "copy_receipt": "Embokuatia kuatia",
+    "verify_receipt_button": "Ehecha Kuatia Urna-pe"
+  },
+  "verifier": {
+    "title": "Kuatiahechauka Rehechaha",
+    "subtitle": "Eikuaa añetete ne vóto oĩpa urna ryepýpe",
+    "input_label": "Emoinge ne kuatia hash",
+    "verify_button": "Ehecha ko'ág̃a",
+    "valid": "Kuatia oĩ porã ha oike urna-pe",
+    "invalid": "Kuatia ndojejuhúi térã oñemoambue"
+  },
+  "audit": {
+    "title": "Tetãygua Jesareko Renda",
+    "subtitle": "Jehecha eike'ỹre: sellokuéra, ára, poravo rape",
+    "select_election": "Eiporavo Peteĩ Jeporavo",
+    "config_seal": "Mboheko Sello (config_hash)",
+    "roll_seal": "Padrón Sello (roll_hash)",
+    "merkle_root": "Merkle Yvyra Rapo",
+    "votes_chain": "Votokuéra Joajuha (Ledger)",
+    "audit_chain": "Jesareko Joajuha",
+    "ceremony_status": "Paillier / Shamir Ñemongeta",
+    "schedule_history": "Ára moambue tembiasakue",
+    "results_title": "Jeporavo Pavẽ Oikóva",
+    "k_anonymity_notice": "Teko Ñemigua k-Anonimato reheve (k=5)",
+    "sealed_integrity": "Kripto Sello Añetegua ha Oñemoambue'ỹva"
+  },
+  "ceremony": {
+    "title": "Kripto Nemongeta: Llavekuéra Ñemboja'o",
+    "subtitle": "Paillier llavekuéra, Shamir ñemboja'o (k de n) quórum reheve",
+    "setup_title": "Vore 1: Llavekuéra Apo ha Ñemboja'o",
+    "setup_desc": "Omoheñói Paillier llave ha omboja'o n vore Shamir ryepýpe.",
+    "unlock_title": "Vore 2: Jurujái ha Papa Homomórfico Quórum reheve",
+    "unlock_desc": "Emoinge k vorekuéra emombe'u haguã votokuéra.",
+    "execute_setup": "Eñepyrũ Nemongeta",
+    "execute_unlock": "Ejurujá Quórum reheve"
+  },
+  "common": {
+    "loading": "Oñembosako'i hína marandu...",
+    "error": "Oiko peteĩ jejavy",
+    "save": "Ñongatu",
+    "close": "Mboty",
+    "language": "Ñe'ẽ",
+    "native_review_notice": "Gemini rupive oñembohasáva — Oñeikotevẽ guaraníme oñe'ẽva ohecha jey."
+  }
+}

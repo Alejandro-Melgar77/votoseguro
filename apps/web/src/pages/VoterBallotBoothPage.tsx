@@ -29,6 +29,8 @@ import {
 } from '@votoseguro/api-client';
 import { api } from '@/lib/api';
 import { formatElectoralDateTime } from '@/lib/timezone';
+import { useI18n } from '@/i18n';
+import { LanguageSwitcher } from '@/components/electoral/LanguageSwitcher';
 import { IdCardOcrScannerModal } from '@/components/electoral/IdCardOcrScannerModal';
 import { VoiceAccessibleBallotController } from '@/components/electoral/VoiceAccessibleBallotController';
 import { ElectoralFaqAssistantWidget } from '@/components/electoral/ElectoralFaqAssistantWidget';
@@ -244,9 +246,12 @@ export const VoterBallotBoothPage: React.FC = () => {
               <span className="block text-2xs text-stone-400 font-mono">CABINA ELECTORAL SOBERANA (SUFRAGIO CIEGO)</span>
             </div>
           </div>
-          <div className="flex items-center space-x-2 text-xs text-stone-300">
-            <EyeOff className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="font-mono text-2xs">Invariante #9: Voto Desvinculado</span>
+          <div className="flex items-center space-x-3 text-xs text-stone-300">
+            <LanguageSwitcher />
+            <div className="flex items-center space-x-1.5 border-l border-stone-700 pl-3">
+              <EyeOff className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="font-mono text-2xs">Invariante #9: Voto Desvinculado</span>
+            </div>
           </div>
         </div>
       </header>

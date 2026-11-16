@@ -79,3 +79,27 @@
 | **PASO 4** | Must | Configuración en Render, Backend FastAPI y Migración DB | Completado | Tabla `ai_runtime_config` (migración `0006`). `LocalLlmEngine` con cabecera `ngrok-skip-browser-warning: true`, extracción robusta de JSON y telemetría `ai_source: "LFM3-1.7B_NEURAL_TUNNEL"`. Endpoints `/node/status`, `/node/config`, `/node/test-inference`, `/node/ping`. |
 | **PASO 5** | Must | Panel de Estado del Puente en Frontend Web y Badges Electorales | Completado | Componente `LocalAiNodeBridgePanel` en Consola de Administrador y Monitor en Vivo. Badges `AiEngineTelemetryBadge` integrados en IA-L1, IA-L2b, IA-L3 e IA-L5. Web y Mobile 100% tipadas. |
 | **PASO 6** | Must | Verificación en Vivo del Túnel Estático ngrok | Completado | Petición live a `https://repackage-remarry-reviving.ngrok-free.dev/v1/chat/completions` respondiendo HTTP 200 con JSON electoral extraído en vivo. |
+
+---
+
+## 6. Sprint 3 — Parte 1: Criptografía Avanzada (Paillier Homomórfico Aditivo y Shamir k-de-n) [100% Completo]
+
+| ID | Prioridad | Componente / Tarea | Estado | Notas Técnicas y Validación |
+|---|---|---|---|---|
+| **S3-01** | Must | Criptosistema Homomórfico Aditivo de Paillier | Completado | Módulo `app/crypto/paillier.py`. Cifrado de vectores one-hot, suma ciega modular $c_1 \cdot c_2 \pmod{n^2}$ sin descifrar votos individuales. Tabla `homomorphic_tally_cell`. |
+| **S3-02** | Must | Secreto Compartido de Shamir ($k$ de $n$) sobre $\mathbb{F}_P$ | Completado | Módulo `app/crypto/shamir.py`. Primo universal de 4097 bits `DEFAULT_SHAMIR_PRIME`. Reconstrucción por interpolación de Lagrange con umbral $k$, rechazo de sub-umbrales $k-1$ y compromisos SHA-256. |
+| **MIG-07** | Must | Migración Alembic `0007_sprint3_paillier_shamir_gemini_portal` | Completado | Tablas `electoral_trustee_share`, `homomorphic_tally_cell`, `executive_report`, `biometric_verification_audit`. Columnas en `election`. |
+
+---
+
+## 7. Sprint 3 — Parte 2: Gemini External AI, Lenguas Originarias, Crypto Ceremony UI y Public Audit Portal [100% Completo]
+
+| ID | Prioridad | Componente / Tarea | Estado | Notas Técnicas y Validación |
+|---|---|---|---|---|
+| **IA-E1** | Must | Informe Ejecutivo en Lenguaje Natural con Privacidad Estricta | Completado | `app/modules/ai_external/executive_report_service.py`. Generación de informes formales para la Corte Electoral usando exclusivamente métricas consolidadas (Invariante #14). Endpoints `POST` y `GET /api/v1/ai/reports/executive`. |
+| **IA-E2** | Must | Soporte Multi-idioma de Lenguas Originarias (`es`, `qu`, `ay`, `gn`) | Completado | Script `scripts/translate_i18n_gemini.py`. Diccionarios JSON sincronizados en `apps/web/src/i18n/locales/` con paridad total de claves. Hook `useI18n()` y selector `LanguageSwitcher.tsx`. |
+| **IA-E3** | Should | Verificación Facial Asistida con Cero Persistencia en Disco | Completado | `app/modules/ai_external/biometric_service.py`. Consentimiento explícito obligatorio (422 si falta), procesamiento en RAM y destrucción inmediata en `finally:` (Invariante #15). Modal `BiometricSelfieVerificationModal.tsx` con alternativa manual. |
+| **S3-03** | Must | Portal Público de Auditoría Integral (`/audit-portal`) | Completado | `app/modules/public_audit/`. Acceso libre sin login, sellos inmutables, verificación en vivo de cadenas de hashes, historial de cambios de cronograma con motivo y resultados con $k$-anonimato. Página `PublicAuditPortalPage.tsx`. |
+| **S3-01/02 UI**| Must | Interfaz Web de Ceremonia Criptográfica | Completado | `apps/web/src/pages/CryptoCeremonyPage.tsx`. Configuración de autoridades, distribución de fragmentos y desbloqueo por quórum tras el cierre electoral. |
+| **TESTS** | Must | Batería Completa de Pruebas Automatizadas | Completado | **51 de 51 pruebas pasando al 100%** en `pytest` (43 de S1/S2/S3-P1 + 8 nuevas de S3-P2). Frontend Web y Móvil compilando con **0 errores**. |
+

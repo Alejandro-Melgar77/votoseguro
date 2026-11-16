@@ -1,0 +1,92 @@
+{
+  "_meta": {
+    "language": "es",
+    "name": "Español",
+    "native_name": "Español",
+    "review_status": "OFFICIAL_VERIFIED"
+  },
+  "nav": {
+    "home": "Inicio",
+    "login": "Iniciar Sesión",
+    "register": "Registro",
+    "vote": "Votar",
+    "verify_receipt": "Verificar Comprobante",
+    "audit_portal": "Portal de Auditoría",
+    "workspace": "Espacio de Elecciones",
+    "console": "Consola de Plataforma",
+    "ceremony": "Ceremonia Criptográfica",
+    "manual": "Manual de Usuario"
+  },
+  "banner": {
+    "title": "VotoSeguro v2 — Plataforma Soberana de Votación",
+    "verified_integrity": "Integridad Criptográfica Verificada",
+    "secure_session": "Sesión Cifrada de Extremo a Extremo",
+    "official_sovereignty": "Soberanía Cívica y Transparencia Garantizada"
+  },
+  "booth": {
+    "title": "Cabina de Votación Segura",
+    "subtitle": "Emisión de sufragio con cifrado homomórfico Paillier y desvinculación cívica",
+    "select_candidate": "Seleccione una opción para cada cargo electoral",
+    "candidate": "Candidatura",
+    "blank_vote": "Voto en Blanco",
+    "null_vote": "Voto Nulo",
+    "blank_desc": "No opto por ninguna de las candidaturas presentadas en esta contienda",
+    "null_desc": "Anulo voluntariamente mi voto para este cargo electoral",
+    "selected": "Seleccionado",
+    "select_option": "Elegir esta opción",
+    "next_contest": "Siguiente Cargo",
+    "prev_contest": "Cargo Anterior",
+    "review_ballot": "Revisar Papeleta",
+    "confirm_vote_title": "¿Confirmar emisión definitiva del voto?",
+    "confirm_vote_desc": "Una vez confirmado, su voto se cifrará con la clave pública de Paillier y se incorporará a la urna inmutable.",
+    "emit_button": "Confirmar y Emitir Voto",
+    "cancel_button": "Volver a Modificar",
+    "casting": "Cifrando homomórficamente y registrando en urna...",
+    "success_title": "¡Sufragio Emitido con Éxito!",
+    "receipt_title": "Comprobante Criptográfico de Voto",
+    "receipt_hash": "Hash de Comprobante (receipt_hash)",
+    "copy_receipt": "Copiar Comprobante",
+    "verify_receipt_button": "Verificar Comprobante en la Urna"
+  },
+  "verifier": {
+    "title": "Verificador Público de Comprobantes",
+    "subtitle": "Compruebe matemáticamente que su voto está incorporado en la urna inmutable",
+    "input_label": "Ingrese el Hash de su Comprobante",
+    "verify_button": "Verificar Inclusión",
+    "valid": "Comprobante Válido e Incorporado en la Urna",
+    "invalid": "Comprobante no encontrado o alterado"
+  },
+  "audit": {
+    "title": "Portal Público de Auditoría y Transparencia",
+    "subtitle": "Inspección ciudadana sin login: sellos criptográficos, cronograma y resultados",
+    "select_election": "Seleccione una Elección",
+    "config_seal": "Sello de Configuración (config_hash)",
+    "roll_seal": "Sello del Padrón (roll_hash)",
+    "merkle_root": "Raíz del Árbol de Merkle",
+    "votes_chain": "Cadena de Hashes de Urna (Ledger)",
+    "audit_chain": "Cadena de Bitácora de Auditoría",
+    "ceremony_status": "Ceremonia Paillier / Shamir",
+    "schedule_history": "Historial de Modificaciones del Cronograma",
+    "results_title": "Resultados Electorales Oficiales",
+    "k_anonymity_notice": "Protección de Privacidad por k-Anonimato (k=5)",
+    "sealed_integrity": "Sello Criptográfico Válido e Inmutable"
+  },
+  "ceremony": {
+    "title": "Ceremonia Criptográfica de Claves y Escrutinio",
+    "subtitle": "Generación de claves Paillier, reparto Shamir (k de n) y apertura por quórum",
+    "setup_title": "Fase 1: Generación y Reparto de Claves a Custodios",
+    "setup_desc": "Genera el par de claves Paillier y divide la clave privada en n fragmentos de Shamir.",
+    "unlock_title": "Fase 2: Desbloqueo y Escrutinio Homomórfico por Quórum",
+    "unlock_desc": "Ingrese al menos k fragmentos válidos de custodios para descifrar los acumuladores.",
+    "execute_setup": "Ejecutar Ceremonia de Claves",
+    "execute_unlock": "Descifrar Escrutinio con Quórum"
+  },
+  "common": {
+    "loading": "Cargando información...",
+    "error": "Ha ocurrido un error en la operación",
+    "save": "Guardar",
+    "close": "Cerrar",
+    "language": "Idioma",
+    "native_review_notice": "Traducción oficial en Español de VotoSeguro."
+  }
+}

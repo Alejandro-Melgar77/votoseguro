@@ -33,6 +33,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
 import { InstitutionalShell } from '@/components/layout/InstitutionalShell';
 import { formatElectoralDateTime } from '@/lib/timezone';
+import { ExecutiveReportGeneratorCard } from '@/components/electoral/ExecutiveReportGeneratorCard';
 
 export const ElectionResultsTallyPage: React.FC = () => {
   const { electionId } = useParams<{ electionId: string }>();
@@ -253,6 +254,15 @@ export const ElectionResultsTallyPage: React.FC = () => {
             <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
             <div>{error}</div>
           </div>
+        )}
+
+        {/* Panel de Informe Ejecutivo Oficial Gemini (IA-E1) */}
+        {electionId && (
+          <ExecutiveReportGeneratorCard
+            electionId={electionId}
+            electionName={election?.name}
+            isVotingClosed={Boolean(results)}
+          />
         )}
 
         {/* ================================================================= */}

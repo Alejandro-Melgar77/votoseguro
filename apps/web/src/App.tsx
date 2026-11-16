@@ -17,6 +17,8 @@ import { LiveMonitoringDashboardPage } from '@/pages/LiveMonitoringDashboardPage
 import { CryptographicIntegrityCenterPage } from '@/pages/CryptographicIntegrityCenterPage';
 import { PublicReceiptVerifierPage } from '@/pages/PublicReceiptVerifierPage';
 import { PublicSelfRegistrationPage } from '@/pages/PublicSelfRegistrationPage';
+import { PublicAuditPortalPage } from '@/pages/PublicAuditPortalPage';
+import { CryptoCeremonyPage } from '@/pages/CryptoCeremonyPage';
 
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
@@ -50,6 +52,9 @@ export const App: React.FC = () => {
         <Route path="/vote" element={<VoterBallotBoothPage />} />
         <Route path="/verify-receipt" element={<PublicReceiptVerifierPage />} />
         <Route path="/verify-receipt/:receiptHash" element={<PublicReceiptVerifierPage />} />
+        <Route path="/audit-portal" element={<PublicAuditPortalPage />} />
+        <Route path="/audit-portal/:electionId" element={<PublicAuditPortalPage />} />
+        <Route path="/public/audit/:electionId" element={<PublicAuditPortalPage />} />
         <Route path="/elections/:electionId/self-register" element={<PublicSelfRegistrationPage />} />
 
         {/* Consola de Operador de Plataforma */}
@@ -140,6 +145,15 @@ export const App: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={['ADMIN_GENERAL', 'ADMIN_SEGMENT', 'OBSERVER']}>
               <CryptographicIntegrityCenterPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/elections/:electionId/ceremony"
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN_GENERAL']}>
+              <CryptoCeremonyPage />
             </ProtectedRoute>
           }
         />

@@ -19,6 +19,7 @@ import { PublicRegistrationInfo, PublicActivationResponse } from '@votoseguro/ap
 import { api } from '@/lib/api';
 import { formatElectoralDateTime } from '@/lib/timezone';
 import { IdCardOcrScannerModal } from '@/components/electoral/IdCardOcrScannerModal';
+import { BiometricSelfieVerificationModal } from '@/components/electoral/BiometricSelfieVerificationModal';
 import { ElectoralFaqAssistantWidget } from '@/components/electoral/ElectoralFaqAssistantWidget';
 
 export const PublicVoterRegistrationPage: React.FC = () => {
@@ -35,6 +36,8 @@ export const PublicVoterRegistrationPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showOcrModal, setShowOcrModal] = useState(false);
+  const [showBiometricModal, setShowBiometricModal] = useState(false);
+  const [biometricVerified, setBiometricVerified] = useState(false);
 
   // Certificado de Activación
   const [activationResult, setActivationResult] = useState<PublicActivationResponse | null>(null);
@@ -195,13 +198,35 @@ export const PublicVoterRegistrationPage: React.FC = () => {
                     <label className="text-xs font-bold text-stone-700">
                       Cédula de Identidad (CI / DNI) <span className="text-red-500">*</span>
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowOcrModal(true)}
-                      className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1 transition-colors"
-                    >
-                      <span>📷</span> Escanear Cédula (OCR Local + IA-L3)
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowOcrModal(true)}
+                        className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1 transition-colors"
+                      >
+                        <span>📷</span> OCR Cédula
+                      </button>
+                      <span className="text-stone-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!documentId.trim()) {
+                            setSubmitError('Por favor ingrese primero su Cédula de Identidad para el cotejo facial.');
+                            return;
+                          }
+                          setSubmitError(null);
+                          setShowBiometricModal(true);
+                        }}
+                        className={`text-xs font-semibold flex items-center gap-1 transition-colors ${
+                          biometricVerified
+                            ? 'text-emerald-600'
+                            : 'text-civic-navy-900 hover:text-civic-navy-700'
+                        }`}
+                      >
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        {biometricVerified ? '✓ Verificado Facialmente' : 'Verificar Facial (IA-E3)'}
+                      </button>
+                    </div>
                   </div>
                   <input
                     type="text"
@@ -369,6 +394,23 @@ export const PublicVoterRegistrationPage: React.FC = () => {
           setDocumentId(data.ci);
         }}
       />
+
+      {/* Modal Verificación Facial Asistida con Gemini (IA-E3) */}
+      {linkInfo?.election_id && (
+        <BiometricSelfieVerificationModal
+          isOpen={showBiometricModal}
+          onClose={() => setShowBiometricModal(false)}
+          electionId={linkInfo.election_id}
+          documentId={documentId}
+          onVerifiedSuccess={() => {
+            setBiometricVerified(true);
+            setSubmitError(null);
+          }}
+          onContinueWithFallback={() => {
+            setShowBiometricModal(false);
+          }}
+        />
+      )}
 
       {/* Asistente Electoral Oficial RAG */}
       <ElectoralFaqAssistantWidget electionId={linkInfo?.election_id} />

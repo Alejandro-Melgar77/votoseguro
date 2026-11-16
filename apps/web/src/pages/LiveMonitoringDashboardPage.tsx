@@ -19,6 +19,7 @@ import { CryptographicHashBadge } from '@/components/electoral/CryptographicHash
 import { ElectoralFaqAssistantWidget } from '@/components/electoral/ElectoralFaqAssistantWidget';
 import { LocalAiNodeBridgePanel } from '@/components/electoral/LocalAiNodeBridgePanel';
 import { AiEngineTelemetryBadge } from '@/components/electoral/AiEngineTelemetryBadge';
+import { ExecutiveReportGeneratorCard } from '@/components/electoral/ExecutiveReportGeneratorCard';
 import { api, ApiError } from '@/lib/api';
 import type { LiveDashboardSnapshot, AnomalyScanResponse } from '@votoseguro/api-client';
 
@@ -500,6 +501,15 @@ export const LiveMonitoringDashboardPage: React.FC = () => {
               </table>
             </div>
           </div>
+        )}
+
+        {/* IA-E1: Informe Ejecutivo Oficial con Gemini */}
+        {electionId && (
+          <ExecutiveReportGeneratorCard
+            electionId={electionId}
+            electionName={snapshot?.election_name}
+            isVotingClosed={false}
+          />
         )}
 
         {/* Puente Neuronal Local (Sprint 2.5) */}
