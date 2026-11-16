@@ -131,24 +131,51 @@
 
 ### 3.5 Sprint 3 — Parte 1 (v3.0-P1 — Cifrado Homomórfico Paillier y Reparto de Secreto Shamir)
 - **S3-01 (Must — 13 pts): Cifrado Homomórfico con Paillier en Producción (`VoteCodec` & `phe`):**
-  - Implementación de `HomomorphicPaillierVoteCodec` (`app/crypto/vote_codec.py`) utilizando la librería estándar `phe` (`python-paillier`).
-  - Cada voto emitido en `POST /api/v1/ballot/cast` se cifra asimétricamente como vector one-hot (`[E(1), E(0), ...]`) usando la clave pública de la elección.
-  - Almacenamiento seguro en `vote.encoded_payload` con metadata de esquema canónico (`PAILLIER_V1`).
-  - Agregación homomórfica aditiva directa ($\prod E(m_i) \pmod{n^2} = E(\sum m_i)$) mediante `HomomorphicTallyEngine` (`app/modules/results/homomorphic_tally.py`) tanto a nivel de circunscripción como por desgloses/filtros territoriales.
-  - Cero descifrados de votos individuales: el sentido del sufragio individual es matemáticamente inaccesible (Invariante #13 y RF-55).
+  - **Sustitución Integral del Códec Pleno:** Migración de `PlaintextVoteCodec` a `HomomorphicPaillierVoteCodec` como implementación por defecto oficial (`default_vote_codec`) en `app/crypto/vote_codec.py`.
+  - **Cifrado Vectorial One-Hot:** En la emisión de voto (`POST /api/v1/ballot/cast`), la selección del elector para cada circunscripción se transforma en un vector unitario $[E(0), \dots, E(1), \dots, E(0)]$ donde la posición de la opción elegida contiene $E(1)$ y las demás $E(0)$.
+  - **Formato Canónico de Almacenamiento:** El payload en `vote.encoded_payload` almacena:
+    - `scheme`: `"PAILLIER_V1"`
+    - `n`: Módulo público de Paillier ($n = p \cdot q$).
+    - `option_keys`: Lista canónica de identificadores de candidatos y opciones especiales (`BLANK`, `NULL`).
+    - `ciphertexts`: Componentes cifrados en formato hexadecimal con aleatorización fresca $r_i \in \mathbb{Z}_n^*$.
+    - `choice_type` y `candidate_id`: Metadatos auxiliares de auditoría.
+  - **Propiedad Aditiva Homomórfica en Escrutinio:**
+    $$\prod_{i=1}^{N} E(m_i) \equiv E\left(\sum_{i=1}^{N} m_i\right) \pmod{n^2}$$
+    La agregación de urnas se realiza mediante multiplicación modular pura de los componentes cifrados sin requerir descifrado intermedio.
+  - **Motor de Escrutinio Homomórfico (`HomomorphicTallyEngine` en `app/modules/results/homomorphic_tally.py`):**
+    - Agrupación determinista por circunscripción y trayectorias jerárquicas de desglose (*breakdown paths*).
+    - Acumulación de vectores cifrados almacenados en la tabla `homomorphic_tally_cell`.
+    - Cero descifrados individuales: el sentido del voto de cada elector individual jamás es revelado ni expuesto en memoria o base de datos (Invariante #13 y RF-55).
+
 - **S3-02 (Must — 5 pts): Reparto de la Clave de Descifrado con Shamir ($k$ de $n$):**
-  - Esquema de secreto compartido de Shamir en campo finito primo grande (`DEFAULT_SHAMIR_PRIME = (1 << 4096) + 1761`) en `app/crypto/shamir.py`.
-  - Empaquetado canónico de la tupla de factores primos $(p, q)$ de la clave privada de Paillier.
-  - Generación de $n$ fragmentos institucionales con formato canónico `SHAMIR-SHARE-v1-{i}-{k}-{n}-{y_hex}` y cálculo de compromisos criptográficos SHA-256 (`share_commitment`).
-  - Almacenamiento de fragmentos asignados y compromisos en `ElectoralTrusteeShare` (migración Alembic `0007`).
-  - Destrucción inmediata de la clave privada de la memoria RAM tras la ceremonia de generación (`app/modules/crypto_ceremony/service.py`).
-  - Reconstrucción de la clave privada por interpolación de Lagrange únicamente cuando se alcanza el quórum $k$ de fragmentos válidos provistos por las autoridades electorales.
-  - Verificación matemática del módulo público ($p \cdot q == n$) antes de permitir el descifrado oficial de los acumuladores homomórficos.
-  - Endpoints oficiales de la ceremonia criptográfica:
-    - `POST /api/v1/elections/{election_id}/shamir/setup` (y alias `/crypto/key-ceremony`).
-    - `POST /api/v1/elections/{election_id}/shamir/unlock` (y alias `/crypto/tally-decrypt`).
-    - `GET /api/v1/elections/{election_id}/shamir/status` (y alias `/crypto/ceremony-status`).
-  - Respeto estricto del $k$-anonimato: las celdas de desglose con menos de $k$ votos se preservan sin descifrar (`decrypted_counts = None`).
+  - **Esquema de Secreto Compartido de Shamir en $\mathbb{F}_P$ (`app/crypto/shamir.py`):**
+    - Polinomio aleatorio de grado $k-1$: $f(x) = S + a_1 x + a_2 x^2 + \dots + a_{k-1} x^{k-1} \pmod P$.
+    - Campo primo universal de 4097 bits (`DEFAULT_SHAMIR_PRIME = (1 << 4096) + 1761`), garantizando seguridad estricta para claves Paillier de cualquier longitud (1024, 2048 o 4096 bits).
+    - Empaquetado canónico de los factores primos $(p, q)$ de la clave privada de Paillier en un entero escalar $S$.
+    - Formato estándar de fragmentos: `SHAMIR-SHARE-v1-{i}-{k}-{n}-{y_hex}`.
+  - **Compromisos Criptográficos SHA-256 e Integridad:**
+    - Cada fragmento generado cuenta con un compromiso determinista `share_commitment = SHA256(election_id || i || y)`.
+    - Se previene la introducción de fragmentos adulterados o pertenecientes a otras elecciones.
+  - **Destrucción Inmediata de Memoria:** Tras la ceremonia de fragmentación, la clave privada se purga de la memoria RAM del servidor. Ningún nodo almacena la clave completa en disco ni en base de datos.
+  - **Reconstrucción por Quórum e Interpolación de Lagrange:**
+    $$S = \sum_{j=1}^k y_j \prod_{m \neq j} \frac{-x_m}{x_j - x_m} \pmod P$$
+    - Se requiere un quórum de al menos $k$ autoridades que suministren sus fragmentos válidos.
+    - Con $k-1$ o menos fragmentos, es matemáticamente imposible recuperar información sobre los factores $(p, q)$ (`InsufficientSharesException`).
+    - Verificación matemática obligatoria del módulo público ($p \cdot q == n$) antes de autorizar el descifrado oficial.
+  - **Preservación del $k$-Anonimato en Escrutinio (Invariante #12):**
+    - Durante el descifrado oficial por quórum, las celdas de desglose territorial con menos de $k$ votantes (`k_anonymity=5`) se suprimen matemáticamente (`decrypted_counts = None`), impidiendo la reidentificación de preferencias en segmentos pequeños.
+
+- **Infraestructura de Datos y Migración Alembic `0007` (`0007_sprint3_paillier_shamir_gemini_portal.py`):**
+  - **Tabla `electoral_trustee_share`:** Almacenamiento seguro de custodios electorales (`trustee_index`, `trustee_name`, `trustee_email`, `share_commitment`, `assigned_share`, `provided_at`, `revoked`).
+  - **Tabla `homomorphic_tally_cell`:** Celdas de escrutinio cifrado (`constituency_id`, `breakdown_path`, `vote_count`, `cipher_vector_accum`, `decrypted_counts`, `k_anonymity_suppressed`).
+  - **Tabla `executive_report`:** Auditoría de reportes consolidados y ejecutivos.
+  - **Tabla `biometric_verification_audit`:** Registro de eventos de verificación biométrica.
+  - **Columnas Criptográficas en `election`:** `paillier_public_key`, `paillier_key_bits`, `shamir_k`, `shamir_n`, `shamir_prime`, `shamir_setup_at`, `homomorphic_tallied_at`, `key_ceremony_status`.
+
+- **Endpoints Oficiales de la Ceremonia Criptográfica (`app/modules/crypto_ceremony/router.py`):**
+  - `POST /api/v1/elections/{election_id}/shamir/setup` (alias: `/api/v1/elections/{election_id}/crypto/key-ceremony`): Genera llaves Paillier, fragmenta la clave privada en $n$ custodios, almacena compromisos y purga la llave privada.
+  - `POST /api/v1/elections/{election_id}/shamir/unlock` (alias: `/api/v1/elections/{election_id}/crypto/tally-decrypt`): Valida cierre de votación (`VOTING_CLOSED`), recibe $k$ fragmentos, reconstruye la llave privada, descifra acumuladores homomórficos y transiciona a `TALLIED`.
+  - `GET /api/v1/elections/{election_id}/shamir/status` (alias: `/api/v1/elections/{election_id}/crypto/ceremony-status`): Inspecciona el estado de la ceremonia, quórum requerido ($k$), total custodios ($n$), lista de custodios y estado de desbloqueo.
 
 ---
 
@@ -236,3 +263,82 @@ pnpm start
    - Consulta y auditoría de comprobantes de urna (S2-03).
    - Reconstrucción matemática de la raíz del Árbol de Merkle del padrón congelado (S2-07).
    - Consultas operativas al Asistente Electoral RAG (IA-L5).
+
+### 4.10 Verificación del Cifrado Homomórfico de Paillier (`HomomorphicPaillierVoteCodec`)
+Ejecute la suite dedicada de códec y escrutinio homomórfico:
+```bash
+cd apps/api
+.venv\Scripts\python.exe -m pytest tests/test_paillier_production_codec_and_tally.py -v
+```
+**Comprobaciones automáticas validadas:**
+1. **Aditividad Homomórfica:** Emisión de múltiples votos cifrados vectorialmente con Paillier; multiplicación acumulativa de los cifrados módulo $n^2$ y posterior descifrado de los acumuladores con la clave privada, confirmando coincidencia exacta al 100% con el escrutinio plano.
+2. **Preservación del $k$-Anonimato:** Celdas de desglose territorial con número de sufragios inferior al umbral $k$ ($< 5$) son redactadas y suprimidas en el escrutinio oficial (`decrypted_counts = None`), garantizando la imposibilidad de reidentificación de electores en circunscripciones pequeñas.
+
+### 4.11 Verificación de la Ceremonia de Quórum de Shamir ($k$ de $n$)
+Ejecute la suite dedicada de la ceremonia de claves y desbloqueo:
+```bash
+cd apps/api
+.venv\Scripts\python.exe -m pytest tests/test_shamir_secret_sharing_ceremony.py -v
+```
+**Comprobaciones automáticas validadas:**
+1. **Reconstrucción con Quórum Exacto:** Fragmentación de la clave privada en $n=5$ custodios con umbral $k=3$. Al suministrar 3 fragmentos válidos cualesquiera, la interpolación de Lagrange reconstruye de forma idéntica la tupla de factores primos $(p, q)$.
+2. **Imposibilidad Matemática Sub-Umbral:** Al intentar reconstruir el secreto con $k-1=2$ fragmentos, el sistema arroja una excepción de seguridad `InsufficientSharesException` y no expone ningún bit de la clave privada.
+3. **Flujo E2E Completo:** Configuración de ceremonia -> Votación cifrada en urna -> Cierre forzoso de votación (`VOTING_CLOSED`) -> Intento denegado con quórum insuficiente -> Desbloqueo exitoso con quórum completo ($k$) -> Escrutinio oficial homomórfico y estado `TALLIED`.
+
+---
+
+## 5. Arquitectura Criptográfica y Matemáticas de Urna en Producción (Sprint 3 — Parte 1)
+
+```
+       +-------------------------------------------------------------------------+
+       |               CEREMONIA CRIPTOGRÁFICA INICIAL (SETUP)                   |
+       |  Generación Paillier (pk, sk)  ==>  sk=(p, q) fragmentado con Shamir    |
+       |  pk almacenada en BD            ==>  n fragmentos entregados a custodios|
+       |  sk DESTRUIDA DE LA MEMORIA RAM INMEDIATAMENTE                          |
+       +-------------------------------------------------------------------------+
+                                          |
+                                          v
+       +-------------------------------------------------------------------------+
+       |                  EMISIÓN DE VOTOS (VOTING_OPEN)                         |
+       |  Elector marca opción  ==>  Vector One-Hot: [0, 1, 0]                   |
+       |  Cifrado asimétrico individual con pk: [E(0), E(1), E(0)]              |
+       |  Almacenamiento en tabla 'vote.encoded_payload' (PAILLIER_V1)           |
+       |  * CERO DESCIFRADOS INDIVIDUALES (Invariante #13 y RF-55)               |
+       +-------------------------------------------------------------------------+
+                                          |
+                                          v
+       +-------------------------------------------------------------------------+
+       |                 CIERRE Y AGREGACIÓN HOMOMÓRFICA                         |
+       |  Elección transiciona a VOTING_CLOSED                                   |
+       |  Multiplicación modular de cifrados en BD / Python:                     |
+       |          E(m1) * E(m2) * ... * E(mN) mod n^2 = E(sum m_i)              |
+       |  Acumuladores cifrados guardados en 'homomorphic_tally_cell'            |
+       +-------------------------------------------------------------------------+
+                                          |
+                                          v
+       +-------------------------------------------------------------------------+
+       |               CEREMONIA DE DESBLOQUEO Y ESCRUTINIO                      |
+       |  Quórum de k autoridades ingresan sus fragmentos (k de n)               |
+       |  Validación de compromisos SHA-256 e interpolación de Lagrange en F_P   |
+       |  Reconstrucción de sk=(p, q) y validación p * q == n                    |
+       |  Descifrado por lotes de acumuladores respetando k-anonimato            |
+       |  Elección transiciona a TALLIED y publicación oficial de resultados     |
+       +-------------------------------------------------------------------------+
+```
+
+### 5.1 Criptosistema Homomórfico Aditivo de Paillier
+- **Generación de Claves:** Se eligen dos primos grandes independientes $p$ y $q$. Se calcula el módulo $n = p \cdot q$ y $\lambda = \text{lcm}(p-1, q-1)$.
+- **Cifrado Asimétrico:** Para cifrar un mensaje escalar $m \in \mathbb{Z}_n$, se selecciona un número aleatorio uniforme $r \in \mathbb{Z}_n^*$:
+  $$c = g^m \cdot r^n \pmod{n^2}$$
+- **Propiedad Aditiva Homomórfica:**
+  $$c_1 \cdot c_2 = (g^{m_1} r_1^n)(g^{m_2} r_2^n) \equiv g^{m_1 + m_2} (r_1 r_2)^n \pmod{n^2}$$
+  Por ende, el producto de dos o más textos cifrados desencadena la suma de sus mensajes en texto plano sin requerir descifrarlos.
+
+### 5.2 Esquema de Secreto Compartido de Shamir en Campo Finito $\mathbb{F}_P$
+- **Construcción Polinómica:** Para dividir la clave privada empaquetada $S = \text{pack}(p, q)$ en $n$ fragmentos con umbral $k$, se genera un polinomio aleatorio de grado $k-1$:
+  $$f(x) = S + a_1 x + a_2 x^2 + \dots + a_{k-1} x^{k-1} \pmod P$$
+  donde $P$ es el primo universal estandarizado de 4097 bits `DEFAULT_SHAMIR_PRIME = (1 << 4096) + 1761`.
+- **Generación de Fragmentos:** Se entregan los puntos $(i, f(i))$ para $i = 1, \dots, n$ a los custodios institucionales (`ElectoralTrusteeShare`).
+- **Reconstrucción por Lagrange:** Dados $k$ fragmentos distintos $(x_j, y_j)$:
+  $$S = f(0) = \sum_{j=1}^k y_j \prod_{\substack{m=1 \\ m \neq j}}^k \frac{-x_m}{x_j - x_m} \pmod P$$
+  Si se presentan menos de $k$ fragmentos, el sistema de ecuaciones lineales tiene infinitas soluciones equiprobables en $\mathbb{F}_P$, otorgando seguridad teórica de la información absoluta (perfect secrecy).
