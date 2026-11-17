@@ -52,6 +52,12 @@ dist-ssr/
 *.sqlite
 *.sqlite3
 
+# Android / Mobile Builds
+*.apk
+*.aab
+apps/mobile/android/
+.cxx/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

@@ -14,12 +14,21 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@babel/runtime':
+        specifier: ^8.1.2
+        version: 8.1.2
+      '@react-native/assets-registry':
+        specifier: 0.74.87
+        version: 0.74.87
       '@votoseguro/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
       expo:
         specifier: ~51.0.28
         version: 51.0.39(@babel/core@7.29.13(supports-color@10.2.2))(@babel/preset-env@7.29.7(@babel/core@7.29.13(supports-color@10.2.2))(supports-color@10.2.2))(react-native@0.74.5(@babel/core@7.29.13(supports-color@10.2.2))(@babel/preset-env@7.29.7(@babel/core@7.29.13(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@18.2.79)(react@18.2.0)(supports-color@10.2.2))(react@18.2.0)(supports-color@10.2.2)
+      expo-asset:
+        specifier: ~10.0.10
+        version: 10.0.10(expo@51.0.39(@babel/core@7.29.13(supports-color@10.2.2))(@babel/preset-env@7.29.7(@babel/core@7.29.13(supports-color@10.2.2))(supports-color@10.2.2))(react-native@0.74.5(@babel/core@7.29.13(supports-color@10.2.2))(@babel/preset-env@7.29.7(@babel/core@7.29.13(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@18.2.79)(react@18.2.0)(supports-color@10.2.2))(react@18.2.0)(supports-color@10.2.2))(supports-color@10.2.2)
       expo-status-bar:
         specifier: ~1.12.1
         version: 1.12.1
@@ -834,6 +843,9 @@ packages:
   '@babel/runtime@7.29.13':
     resolution: {integrity: sha512-v+oN26xP4YIlQsbQ/CbTH1WG5m/l/DjKKZNy/Kp3f/AFvbgt7Em/D0FeMM3O2hX0YzeN2M16W8lOpyhIkfCBcQ==}
     engines: {node: '>=6.9.0'}
+
+  '@babel/runtime@8.1.2':
+    resolution: {integrity: sha512-Ay6HdEKZJAeGs6KKJ/ezCK5ssjFmkvUiR0TEGv/B1abyjLWrQ2RU+M507Ppk0NikhvVFhlEFC1/rHfCiYqSUcw==}
 
   '@babel/template@7.29.7':
     resolution: {integrity: sha512-puq+Gf35oI24FeN11LkoUQFqv9uwNeWpxXZi/Ji3rRIoKAzKnxRaZ+Gkj0vKS9ZCiTESfng1N9LyOyXvo+m+Gg==}
@@ -5551,6 +5563,8 @@ snapshots:
       source-map-support: 0.5.21
 
   '@babel/runtime@7.29.13': {}
+
+  '@babel/runtime@8.1.2': {}
 
   '@babel/template@7.29.7':
     dependencies:
