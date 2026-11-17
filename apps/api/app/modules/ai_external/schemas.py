@@ -27,7 +27,7 @@ class ExecutiveReportAiPayload(BaseModel):
     results_highlights: List[str] = Field(default_factory=list, description="Puntos destacados")
     recommendations: List[str] = Field(default_factory=list, description="Recomendaciones")
     ai_source: str = Field(default="GEMINI_EXTERNAL_API")
-    model_used: str = Field(default="gemini-2.5-flash")
+    model_used: str = Field(default="gemini-3.8-flash")
 
 
 class ExecutiveReportResponse(BaseModel):

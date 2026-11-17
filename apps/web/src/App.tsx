@@ -19,6 +19,7 @@ import { PublicReceiptVerifierPage } from '@/pages/PublicReceiptVerifierPage';
 import { PublicSelfRegistrationPage } from '@/pages/PublicSelfRegistrationPage';
 import { PublicAuditPortalPage } from '@/pages/PublicAuditPortalPage';
 import { CryptoCeremonyPage } from '@/pages/CryptoCeremonyPage';
+import { UserAndAdminManualPage } from '@/pages/UserAndAdminManualPage';
 
 const ProtectedRoute: React.FC<{
   children: React.ReactNode;
@@ -55,6 +56,8 @@ export const App: React.FC = () => {
         <Route path="/audit-portal" element={<PublicAuditPortalPage />} />
         <Route path="/audit-portal/:electionId" element={<PublicAuditPortalPage />} />
         <Route path="/public/audit/:electionId" element={<PublicAuditPortalPage />} />
+        <Route path="/manual" element={<UserAndAdminManualPage />} />
+        <Route path="/docs/manual" element={<UserAndAdminManualPage />} />
         <Route path="/elections/:electionId/self-register" element={<PublicSelfRegistrationPage />} />
 
         {/* Consola de Operador de Plataforma */}

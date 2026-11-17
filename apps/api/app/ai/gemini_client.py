@@ -42,7 +42,7 @@ class GeminiExternalClient:
     @staticmethod
     def get_api_endpoint(model_name: Optional[str] = None) -> str:
         """Genera el endpoint REST de la API de Google Gemini."""
-        model = model_name or getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash")
+        model = model_name or getattr(settings, "GEMINI_MODEL", "gemini-3.8-flash")
         api_key = (getattr(settings, "GEMINI_API_KEY", "") or "").strip()
         return f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
@@ -89,7 +89,7 @@ class GeminiExternalClient:
             return fallback_res
 
         endpoint = cls.get_api_endpoint()
-        model_name = getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash")
+        model_name = getattr(settings, "GEMINI_MODEL", "gemini-3.8-flash")
         timeout_sec = getattr(settings, "GEMINI_TIMEOUT_SECONDS", 20.0)
 
         # Construcción del payload para Gemini
@@ -212,7 +212,7 @@ class GeminiExternalClient:
             return fallback_res
 
         endpoint = cls.get_api_endpoint()
-        model_name = getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash")
+        model_name = getattr(settings, "GEMINI_MODEL", "gemini-3.8-flash")
         timeout_sec = getattr(settings, "GEMINI_TIMEOUT_SECONDS", 20.0)
 
         parts = []

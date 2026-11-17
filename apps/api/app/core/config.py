@@ -57,7 +57,7 @@ class Settings(BaseSettings):
 
     # Gemini External AI (Sprint 3 - IA-E1, IA-E2, IA-E3)
     GEMINI_API_KEY: str = Field(default="")
-    GEMINI_MODEL: str = Field(default="gemini-2.5-flash")
+    GEMINI_MODEL: str = Field(default="gemini-3.8-flash")
     GEMINI_TIMEOUT_SECONDS: float = Field(default=20.0)
 
     # Inspector de Credenciales de Demostración (Sprint 1)

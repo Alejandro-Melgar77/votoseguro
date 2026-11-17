@@ -258,3 +258,23 @@
   1. Se exponen los endpoints públicos `GET /api/v1/public/audit/elections` y `GET /api/v1/public/audit/elections/{election_id}` protegidos por limitación de tasa `slowapi`.
   2. El expediente público entrega: sellos canónicos (`config_hash`, `roll_hash`, `merkle_root`), verificación en tiempo real del encadenamiento de votos y auditoría (`votes_chain_valid`, `audit_chain_valid`), historial exhaustivo de cambios de cronograma (`schedule_change`) con fecha, autor y motivo oficial, y resultados por circunscripción con filtro de $k$-anonimato tras el cierre.
   3. No se expone ningún dato personal ni voto individual en ningún campo del expediente.
+
+
+## ADR 028: Arquitectura de Pruebas de Carga y Concurrencia Masiva con k6 y Runner Asíncrono (S3-04)
+- **Fecha:** 2026-11-16
+- **Estado:** Aceptado
+- **Contexto:** El Requisito No Funcional de la Sección 12 exige que el sistema sostenga una jornada electoral de alta intensidad con 1,000 usuarios concurrentes, garantizando que el 95% de las emisiones atómicas de papeleta cifrada con Paillier se procesen en menos de 2 segundos ($p(95) < 2000\text{ms}$) con una tasa de error inferior al 1%.
+- **Decisión:**
+  1. Se implementa una suite oficial de pruebas de estrés en `tests/load/` compuesta por un script preparador (`prepare_load_test_election.py`), un script oficial de k6 (`votoseguro_load_test.js`) con rampa hasta 1,000 VUs en 4 etapas, y un runner asíncrono en Python (`run_load_benchmark.py`).
+  2. Distribución de credenciales y aislamiento: El aprovisionador genera 1,000 electores en estado `ACTIVE` con credenciales de voto únicas en `voters_credentials.json`, permitiendo a k6 simular votantes reales sin colisiones.
+  3. Cabeceras `X-Forwarded-For` dinámicas para evitar que el rate-limiter (`slowapi`) interprete los 1,000 VUs locales como un ataque DoS desde una sola IP.
+  4. Umbrales de calidad estrictos: El suite falla automáticamente si $p(95) \ge 2000\text{ms}$ en `/ballot/cast` o si `http_req_failed >= 0.01`.
+
+## ADR 029: Certificación End-to-End de Invariantes y Release Final v3.0.0
+- **Fecha:** 2026-11-16
+- **Estado:** Aceptado
+- **Contexto:** La certificación final de release de VotoSeguro v3.0.0 requiere validar en un solo flujo continuo y hermético que la interacción entre todas las capas (multi-tenancy, jerarquías, padrón, criptografía Paillier, quórum Shamir, ledger encadenado, IA local y externa, y portal público de auditoría) no presente regresiones ni vulnerabilidades de privacidad.
+- **Decisión:**
+  1. Se implementa `tests/test_final_e2e_v3_release_audit.py` recorriendo las 12 fases del ciclo de vida electoral: creación de organización -> jerarquía -> candidatos -> ceremonia de llaves -> publicación (`config_hash`) -> duplicados `IA-L2b` -> cierre de padrón (`roll_hash` + `merkle_root`) -> voto cifrado Paillier + ledger -> cierre de urnas -> bloqueo 403 antes del quórum -> desbloqueo con $k=2$ custodios -> escrutinio homomórfico con $k$-anonimato -> informe Gemini `IA-E1` -> verificación pública en `/public/audit/elections/{id}`.
+  2. Reset automático de rate-limiting en `tests/conftest.py` para garantizar aislamiento determinista entre pruebas unitarias e integración en `pytest`.
+  3. Cierre formal de los Sprints 1, 2, 2.5 y 3 con 52 de 52 pruebas pasando al 100% y 0 errores de compilación en web y móvil.

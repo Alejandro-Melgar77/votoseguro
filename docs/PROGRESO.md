@@ -1,10 +1,11 @@
-# Registro de Progreso — Sprint 1 (v1.0) & Sprint 2 (v2.0)
+# Registro de Progreso — Sprints 1, 2, 2.5 y 3 (Release Final Certificado v3.0.0)
 
 ## Estado General del Proyecto
-- **Periodo:** 11 de Noviembre de 2026
-- **Estado Global:** Sprint 1 y Sprint 2 completados al 100% (Release Oficial v2.0).
-- **Pruebas Automatizadas:** **28 de 28 pruebas unitarias y de integración pasando al 100% en `pytest`**.
+- **Periodo:** Noviembre de 2026
+- **Estado Global:** Sprints 1, 2, 2.5 y 3 completados al 100% (Release Oficial v3.0.0).
+- **Pruebas Automatizadas:** **52 de 52 pruebas unitarias, de integración y certificación E2E pasando al 100% en `pytest`**.
 - **Compilación de Producción:** Web (Vite + TypeScript) con **0 errores**; Mobile (`apps/mobile` con React Native + Expo) con **0 errores** en TypeScript (`tsc --noEmit`).
+- **Pruebas de Carga (k6):** Suite oficial de concurrencia para 1,000 VUs con p(95) < 2000ms y tasa de error < 1% (RNF Sección 12).
 
 ---
 
@@ -103,3 +104,17 @@
 | **S3-01/02 UI**| Must | Interfaz Web de Ceremonia Criptográfica | Completado | `apps/web/src/pages/CryptoCeremonyPage.tsx`. Configuración de autoridades, distribución de fragmentos y desbloqueo por quórum tras el cierre electoral. |
 | **TESTS** | Must | Batería Completa de Pruebas Automatizadas | Completado | **51 de 51 pruebas pasando al 100%** en `pytest` (43 de S1/S2/S3-P1 + 8 nuevas de S3-P2). Frontend Web y Móvil compilando con **0 errores**. |
 
+
+---
+
+## 8. Sprint 3 — Parte 3: Pruebas de Carga k6, Auditoría E2E de Invariantes y Release Final (S3-04 — v3.0.0) [100% Completo]
+
+| ID | Prioridad | Componente / Tarea | Estado | Notas Técnicas y Validación |
+|---|---|---|---|---|
+| **S3-04.1** | Must | Suite de Pruebas de Carga con k6 (`tests/load/`) | Completado | Script `prepare_load_test_election.py` aprovisiona 1,000 votantes activos y exporta `voters_credentials.json`. Script `votoseguro_load_test.js` escala a 1,000 VUs concurrentes con umbral $p(95) < 2000\text{ms}$ y tasa de error $< 1\%$. Runner asíncrono en Python `run_load_benchmark.py` y `README_LOAD_TESTING.md`. |
+| **S3-04.2** | Must | Test de Certificación E2E de Release (`test_final_e2e_v3_release_audit.py`) | Completado | Validación integral continua en `apps/api/tests/`: Tenant -> Jerarquía -> Paillier + Shamir ($k=2, n=3$) -> Publicación (`config_hash`) -> Duplicados IA-L2b -> Padrón (`roll_hash` + `merkle_root`) -> Voto cifrado Paillier + Cadena Hashes -> Cierre -> Desbloqueo Shamir -> Escrutinio con $k$-anonimato -> Informe Gemini IA-E1 -> Auditoría Pública sin login. |
+| **S3-04.3** | Must | Manual de Usuario Completo (`docs/MANUAL_USUARIO.md`) | Completado | Guía exhaustiva en 5 secciones en español: 1. Elector (Web/Móvil, OCR, Voz, Quechua/Aymara/Guaraní, Comprobante y Merkle); 2. Administrador General (Ciclo de vida, ceremonias, monitoreo y escrutinio); 3. Custodios de Shamir; 4. Delegados y Auditores; 5. Operación del Nodo Neuronal Local. |
+| **S3-04.4** | Must | Guía de Despliegue en la Nube (`docs/GUIA_DESPLIEGUE_NUBE.md`) | Completado | Arquitectura de producción para Render (FastAPI), Supabase (PostgreSQL 15+), Vercel (Frontend Vite), Expo EAS (App Móvil), túnel ngrok y catálogo de variables de entorno. |
+| **S3-04.5** | Must | Manual Interactivo en la Web (`/manual`) | Completado | Página `apps/web/src/pages/UserAndAdminManualPage.tsx` registrada en rutas `/manual` y `/docs/manual` con pestañas interactivas, comandos copiables y diagramas. |
+| **S3-04.6** | Must | Documentación Oficial y Arquitectura (`README.md`) | Completado | Actualización integral de arquitectura v3.0.0, 20 invariantes, stack tecnológico Turborepo + pnpm, comandos de desarrollo y enlaces oficiales. |
+| **FINAL** | Must | Batería Completa de Pruebas Automatizadas | Completado | **52 de 52 pruebas pasando al 100%** en `pytest` (`apps/api`). Compilación Web y Móvil con **0 errores**. |

@@ -9,6 +9,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.dependencies import get_time_provider
+from app.core.rate_limit import limiter
 from app.core.security import create_access_token, get_password_hash
 from app.core.time import FakeTimeProvider
 from app.db.base import Base
@@ -33,6 +34,12 @@ TestSessionLocal = async_sessionmaker(
     autocommit=False,
     autoflush=False,
 )
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter_per_test():
+    """Reinicia los contadores en memoria de SlowAPI para evitar colisiones 429 entre pruebas."""
+    limiter.reset()
 
 
 @pytest_asyncio.fixture(scope="function")
