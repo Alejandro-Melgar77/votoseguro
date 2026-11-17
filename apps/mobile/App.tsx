@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Linking, SafeAreaView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { registerRootComponent } from 'expo';
 
 import { HomePortalScreen } from './src/screens/HomePortalScreen';
 import { VoterRegistrationScreen } from './src/screens/VoterRegistrationScreen';
@@ -120,3 +121,5 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+registerRootComponent(App);
