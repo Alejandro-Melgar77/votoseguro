@@ -1,5 +1,18 @@
 import { createWorker, PSM } from 'tesseract.js';
 
+type Reading = { text: string; confidence: number };
+function quality(data: Reading) {
+  const normalized = data.text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+  const labels = normalized.match(/\b(CEDULA|IDENTIDAD|NOMBRES?|APELLIDOS?|NACIMIENTO|BOLIVIA|PLURINACIONAL|NUMERO)\b/g) || [];
+  const words = normalized.match(/\b[A-Z]{3,}\b/g) || [];
+  const hasNumber = /\b\d{5,10}\b/.test(normalized);
+  return {
+    score: data.confidence + Math.min(labels.length, 5) * 14 + Math.min(words.length, 10) * 2 + (hasNumber ? 12 : 0),
+    good: data.confidence >= 65 && labels.length >= 2 && words.length >= 4 && hasNumber,
+    readable: data.confidence >= 45 && words.length >= 4 && (labels.length > 0 || data.confidence >= 75),
+  };
+}
+
 export async function recognizeIdCard(file: File, progress: (value: number) => void): Promise<string> {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && !/\.(jpe?g|png|webp)$/i.test(file.name)) {
     throw new Error('Use una imagen JPG, PNG o WebP.');
@@ -37,18 +50,35 @@ export async function recognizeIdCard(file: File, progress: (value: number) => v
       logger: (event) => { if (event.status === 'recognizing text') progress(event.progress); },
     }), deadline]).finally(() => { if (timer) clearTimeout(timer); });
     try {
-      await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
-      const first = await worker.recognize(canvas, { rotateAuto: true });
-      let best = first.data;
-      if (best.confidence < 65 || !/\d{5,10}/.test(best.text)) {
-        // A second layout pass handles cards with a portrait and scattered labels.
-        await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });
-        const second = await worker.recognize(canvas, { rotateAuto: true });
-        const score = (data: typeof best) => data.confidence + (/\d{5,10}/.test(data.text) ? 30 : 0);
-        if (score(second.data) > score(best)) best = second.data;
+      let best: Reading = { text: '', confidence: 0 };
+      const rotated = document.createElement('canvas');
+      try {
+        // rotateAuto deskews text; it does not reliably correct upside-down cards.
+        // Rotate the pixels explicitly, retaining only the best readable orientation.
+        orientations: for (const degrees of [0, 90, 180, 270]) {
+          const sideways = degrees === 90 || degrees === 270;
+          rotated.width = sideways ? canvas.height : canvas.width;
+          rotated.height = sideways ? canvas.width : canvas.height;
+          const output = rotated.getContext('2d');
+          if (!output) throw new Error('No se pudo preparar la imagen.');
+          output.translate(rotated.width / 2, rotated.height / 2);
+          output.rotate(degrees * Math.PI / 180);
+          output.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+          for (const mode of [PSM.AUTO, PSM.SPARSE_TEXT]) {
+            await worker.setParameters({ tessedit_pageseg_mode: mode });
+            const result = await worker.recognize(rotated, { rotateAuto: true });
+            if (quality(result.data).score > quality(best).score) best = result.data;
+            if (quality(best).good) break orientations;
+          }
+        }
+      } finally {
+        rotated.width = 0;
+        rotated.height = 0;
       }
       const text = best.text.trim();
-      if (!text) throw new Error('No se detectó texto. Tome otra foto con buena luz y sin reflejos.');
+      if (!text || !quality(best).readable) {
+        throw new Error('No se pudo leer el carnet con suficiente claridad. Fotografíe solo el documento completo, de frente, con buena luz y sin reflejos. También puede escribir los datos manualmente.');
+      }
       return text;
     } finally {
       await worker.terminate();

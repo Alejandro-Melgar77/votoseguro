@@ -1,6 +1,31 @@
 import { test, expect } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 
+for (const angle of [90, 180, 270]) {
+  test(`reads a document photographed at ${angle} degrees`, async ({page}) => {
+    await page.goto('/vote');
+    const image=await page.evaluate(degrees => {
+      const source=document.createElement('canvas'); source.width=1400;source.height=850;
+      const ctx=source.getContext('2d')!;
+      ctx.fillStyle='#ece9dc';ctx.fillRect(0,0,1400,850);
+      ctx.fillStyle='#222';ctx.font='42px Arial';
+      ['ESTADO PLURINACIONAL DE BOLIVIA','CEDULA DE IDENTIDAD','NUMERO: 8732641','NOMBRES: MARIA ELENA','APELLIDOS: ROJAS FLORES'].forEach((line,index)=>ctx.fillText(line,60,100+index*125));
+      const rotated=document.createElement('canvas');
+      rotated.width=degrees===180?source.width:source.height;
+      rotated.height=degrees===180?source.height:source.width;
+      const output=rotated.getContext('2d')!;
+      output.translate(rotated.width/2,rotated.height/2); output.rotate(degrees*Math.PI/180);
+      output.drawImage(source,-source.width/2,-source.height/2);
+      return rotated.toDataURL('image/png').split(',')[1];
+    },angle);
+    await page.getByRole('button',{name:/Escanear OCR/}).click();
+    await page.getByLabel('Fotografía de la cédula').setInputFiles({name:`rotated-${angle}.png`,mimeType:'image/png',buffer:Buffer.from(image,'base64')});
+    await expect(page.locator('textarea')).toHaveValue(/8732641/, {timeout:90_000});
+    await expect(page.locator('textarea')).toHaveValue(/MARIA/);
+    await expect(page.locator('textarea')).toHaveValue(/ROJAS/);
+  });
+}
+
 test('reads actual pixels and sends only reviewed text when the user requests extraction', async ({ page }) => {
   const writes: string[] = [];
   const externalRequests: string[] = [];
@@ -66,4 +91,20 @@ test('reports a missing OCR runtime rather than spinning forever', async ({page}
   await page.getByLabel('Fotografía de la cédula').setInputFiles(fileURLToPath(new URL('./fixtures/id-card-test.png',import.meta.url)));
   await expect(page.getByText(/El escáner no pudo cargar sus archivos/)).toBeVisible();
   await expect(page.getByLabel('Fotografía de la cédula')).toBeEnabled();
+});
+
+test('rejects unreadable fragments instead of presenting them as document text', async ({page}) => {
+  await page.goto('/vote');
+  const image=await page.evaluate(() => {
+    const canvas=document.createElement('canvas');canvas.width=1400;canvas.height=850;
+    const ctx=canvas.getContext('2d')!;ctx.fillStyle='#ddd';ctx.fillRect(0,0,1400,850);
+    ctx.fillStyle='#333';ctx.font='36px Arial';
+    ['0771865 - BO','x - E eo mo','z Es au','o Pu','Y 4 Om'].forEach((line,index)=>ctx.fillText(line,80,100+index*130));
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  await page.getByRole('button',{name:/Escanear OCR/}).click();
+  await page.getByLabel('Fotografía de la cédula').setInputFiles({name:'unreadable.png',mimeType:'image/png',buffer:Buffer.from(image,'base64')});
+  await expect(page.getByText(/No se pudo leer el carnet con suficiente claridad/)).toBeVisible({timeout:90_000});
+  await expect(page.locator('textarea')).toHaveValue('');
+  await expect(page.getByRole('button',{name:/Extraer Campos/})).toBeDisabled();
 });
