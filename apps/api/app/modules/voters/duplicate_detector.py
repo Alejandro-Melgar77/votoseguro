@@ -86,7 +86,7 @@ async def find_potential_duplicates(
                     levenshtein(lower(full_name), :cand_name) AS edit_dist
                 FROM voter
                 WHERE election_id = :election_id
-                  AND (:voter_id IS NULL OR id != :voter_id)
+                  AND (CAST(:voter_id AS uuid) IS NULL OR id != CAST(:voter_id AS uuid))
                   AND document_id != :cand_doc
                   AND (
                       similarity(lower(full_name), :cand_name) >= 0.45
@@ -96,16 +96,18 @@ async def find_potential_duplicates(
                 ORDER BY sim_score DESC
                 LIMIT 10;
             """)
-            result = await db.execute(
-                sql,
-                {
-                    "election_id": election_id,
-                    "voter_id": candidate_voter_id,
-                    "cand_name": norm_candidate_name,
-                    "cand_doc": norm_candidate_doc,
-                },
-            )
-            for row in result.fetchall():
+            async with db.begin_nested():
+                result = await db.execute(
+                    sql,
+                    {
+                        "election_id": election_id,
+                        "voter_id": candidate_voter_id,
+                        "cand_name": norm_candidate_name,
+                        "cand_doc": norm_candidate_doc,
+                    },
+                )
+                rows = result.fetchall()
+            for row in rows:
                 v_id, d_id, f_name, sim, dist = row
                 matches.append((v_id, d_id, f_name, float(sim or 0.0), int(dist or 0)))
             return matches
