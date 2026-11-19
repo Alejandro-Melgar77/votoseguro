@@ -30,16 +30,21 @@ interface TrusteeStatus {
   trustee_name: string;
   trustee_email: string;
   commitment_hash: string;
+  demo_share_token?: string | null;
   submitted_for_tally: boolean;
   submitted_at: string | null;
 }
 
 interface CeremonyStatusData {
   election_id: string;
-  status: string;
-  key_ceremony_status: string;
-  shamir_threshold_k: number;
-  shamir_total_n: number;
+  status?: string;
+  election_status?: string;
+  key_ceremony_status?: string;
+  key_ceremony_completed?: boolean;
+  shamir_threshold_k?: number;
+  shamir_total_n?: number;
+  threshold_k?: number;
+  total_n?: number;
   key_ceremony_hash: string | null;
   tally_ceremony_hash: string | null;
   paillier_public_n: string | null;
@@ -91,11 +96,29 @@ export const CryptoCeremonyPage: React.FC = () => {
     try {
       const data = await api.get<CeremonyStatusData>(`/elections/${electionId}/shamir/status`);
       setCeremonyStatus(data);
-      if (data.shamir_threshold_k) {
-        setThresholdK(data.shamir_threshold_k);
-        setTotalN(data.shamir_total_n);
-        // Inicializar slots de unlock según K
-        setUnlockSharesText(Array(data.shamir_threshold_k).fill(''));
+      const k = data.threshold_k || data.shamir_threshold_k;
+      const n = data.total_n || data.shamir_total_n;
+      if (k) {
+        setThresholdK(k);
+        setUnlockSharesText(Array(k).fill(''));
+      }
+      if (n) {
+        setTotalN(n);
+      }
+      // Si los custodios ya tienen fragmentos emitidos, poblarlos para copia y autofill
+      if (data.trustees && Array.isArray(data.trustees)) {
+        const foundShares: GeneratedShareItem[] = data.trustees
+          .filter((t) => Boolean(t.demo_share_token))
+          .map((t) => ({
+            trustee_index: t.share_index,
+            trustee_name: t.trustee_name,
+            trustee_email: t.trustee_email,
+            share_formatted: t.demo_share_token!,
+            commitment_hash: t.commitment_hash,
+          }));
+        if (foundShares.length > 0) {
+          setGeneratedShares(foundShares);
+        }
       }
     } catch (err: any) {
       setError(err?.response?.data?.detail || 'Error al cargar estado de la ceremonia criptográfica');
@@ -132,7 +155,17 @@ export const CryptoCeremonyPage: React.FC = () => {
       };
 
       const data = await api.post<any>(`/elections/${electionId}/shamir/setup`, payload);
-      setGeneratedShares(data.trustees_shares || []);
+      const rawTrustees = data.trustees || data.trustees_shares || [];
+      const parsedShares: GeneratedShareItem[] = rawTrustees
+        .filter((t: any) => t.demo_share_token || t.share_formatted)
+        .map((t: any) => ({
+          trustee_index: t.share_index || t.trustee_index,
+          trustee_name: t.trustee_name,
+          trustee_email: t.trustee_email,
+          share_formatted: t.demo_share_token || t.share_formatted,
+          commitment_hash: t.commitment_hash,
+        }));
+      setGeneratedShares(parsedShares);
       setSuccessMsg(
         `¡Ceremonia de claves completada! Se generaron ${totalN} fragmentos Shamir con quórum k=${thresholdK}. La clave privada fue destruida de la memoria RAM.`
       );
@@ -264,14 +297,14 @@ export const CryptoCeremonyPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <span
                 className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${
-                  ceremonyStatus?.status === 'TALLIED'
+                  (ceremonyStatus?.status || ceremonyStatus?.election_status) === 'TALLIED'
                     ? 'bg-emerald-100 text-emerald-800'
-                    : ceremonyStatus?.status === 'VOTING_CLOSED'
+                    : (ceremonyStatus?.status || ceremonyStatus?.election_status) === 'VOTING_CLOSED'
                     ? 'bg-amber-100 text-amber-800'
                     : 'bg-blue-100 text-blue-800'
                 }`}
               >
-                {ceremonyStatus?.status || 'CARGANDO'}
+                {ceremonyStatus?.status || ceremonyStatus?.election_status || 'DRAFT'}
               </span>
             </div>
           </div>
@@ -495,17 +528,35 @@ export const CryptoCeremonyPage: React.FC = () => {
                         </p>
                         <p className="text-[11px] text-stone-500 font-mono">{t.trustee_email}</p>
                       </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-stone-400 font-mono block">
-                          Commitment: {t.commitment_hash.substring(0, 16)}...
-                        </span>
-                        <span
-                          className={`inline-flex items-center text-[10px] font-bold ${
-                            t.submitted_for_tally ? 'text-emerald-600' : 'text-stone-400'
-                          }`}
-                        >
-                          {t.submitted_for_tally ? '✓ Suministrado en escrutinio' : 'Custodiado'}
-                        </span>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <span className="text-[10px] text-stone-400 font-mono block">
+                            Commitment: {t.commitment_hash.substring(0, 16)}...
+                          </span>
+                          <span
+                            className={`inline-flex items-center text-[10px] font-bold ${
+                              t.submitted_for_tally ? 'text-emerald-600' : 'text-stone-400'
+                            }`}
+                          >
+                            {t.submitted_for_tally ? '✓ Suministrado en escrutinio' : 'Custodiado'}
+                          </span>
+                        </div>
+                        {t.demo_share_token && (
+                          <button
+                            onClick={() => handleCopyShare(t.demo_share_token!, t.share_index)}
+                            className="px-2.5 py-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-semibold flex items-center gap-1 transition-colors shrink-0 shadow-xs"
+                          >
+                            {copiedShareIndex === t.share_index ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-600" /> Copiado
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5 text-amber-800" /> Copiar Clave
+                              </>
+                            )}
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
