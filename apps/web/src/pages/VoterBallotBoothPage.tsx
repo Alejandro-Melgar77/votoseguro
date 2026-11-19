@@ -396,8 +396,8 @@ export const VoterBallotBoothPage: React.FC = () => {
                 candidates={
                   ballotData.contests[activeContestIndex]?.candidates.map((c) => ({
                     id: c.id,
-                    name: c.name,
-                    party: c.party_or_front,
+                    name: c.name || (c as any).full_name,
+                    party: c.party_or_front || (c as any).party_affiliation,
                   })) || []
                 }
                 selectedChoiceType={
@@ -415,8 +415,8 @@ export const VoterBallotBoothPage: React.FC = () => {
                     handleSelectCandidate(
                       targetContest.contest_id,
                       cand.id,
-                      cand.name,
-                      cand.party_or_front
+                      cand.name || (cand as any).full_name,
+                      cand.party_or_front || (cand as any).party_affiliation
                     );
                   }
                 }}
@@ -469,7 +469,7 @@ export const VoterBallotBoothPage: React.FC = () => {
                           </span>
                           <h4 className="text-sm font-bold text-stone-900 font-serif">{contest.contest_name}</h4>
                           <span className="px-2 py-0.5 bg-stone-200 text-stone-700 rounded text-2xs font-bold">
-                            Nivel {contest.scope_level_depth}: {contest.scope_level_name}
+                            Nivel {contest.scope_level_depth || (idx + 1)}: {contest.scope_level_name || contest.node_name}
                           </span>
                         </div>
                         {contest.description && (
@@ -509,8 +509,8 @@ export const VoterBallotBoothPage: React.FC = () => {
                               handleSelectCandidate(
                                 contest.contest_id,
                                 cand.id,
-                                cand.name,
-                                cand.party_or_front
+                                cand.name || (cand as any).full_name,
+                                cand.party_or_front || (cand as any).party_affiliation
                               )
                             }
                             className={`p-3 rounded-lg border text-left transition-all flex items-start space-x-3 ${
@@ -524,11 +524,11 @@ export const VoterBallotBoothPage: React.FC = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                               <span className="block text-xs font-bold text-stone-900 truncate">
-                                {cand.name}
+                                {cand.name || (cand as any).full_name}
                               </span>
-                              {cand.party_or_front && (
+                              {(cand.party_or_front || (cand as any).party_affiliation) && (
                                 <span className="block text-2xs text-stone-500 truncate">
-                                  {cand.party_or_front}
+                                  {cand.party_or_front || (cand as any).party_affiliation}
                                 </span>
                               )}
                             </div>
