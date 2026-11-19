@@ -3,6 +3,7 @@ Esquemas Pydantic para el módulo de Administradores Delegados (ADMIN_SEGMENT - 
 """
 import uuid
 from datetime import datetime
+from typing import Literal
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from app.modules.auth.schemas import UserResponse
 
@@ -13,6 +14,7 @@ class AdminSegmentCreateRequest(BaseModel):
     password: str = Field(..., min_length=8)
     group_id: uuid.UUID | None = None
     node_id: uuid.UUID | None = None
+    role: Literal["ADMIN_SEGMENT", "OBSERVER"] = "ADMIN_SEGMENT"
 
 
 class AdminAssignmentResponse(BaseModel):

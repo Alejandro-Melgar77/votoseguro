@@ -51,7 +51,7 @@ class AdminAssignmentService:
                 email=payload.email.strip().lower(),
                 full_name=payload.full_name.strip(),
                 password_hash=get_password_hash(payload.password),
-                role=UserRole.ADMIN_SEGMENT,
+                role=UserRole(payload.role),
                 status=UserStatus.ACTIVE,
                 created_at=db_now,
             )
@@ -81,14 +81,19 @@ class AdminAssignmentService:
             election_id=election_id,
             payload={
                 "delegated_user_id": str(user.id),
+                "role": user.role.value,
                 "group_id": str(payload.group_id) if payload.group_id else None,
                 "node_id": str(payload.node_id) if payload.node_id else None,
             },
             ip_address=client_ip,
         )
         await db.commit()
-        await db.refresh(assignment)
-        return assignment
+        stmt_loaded = (
+            select(AdminAssignment)
+            .options(selectinload(AdminAssignment.user))
+            .where(AdminAssignment.id == assignment.id)
+        )
+        return (await db.execute(stmt_loaded)).scalar_one()
 
     @staticmethod
     async def list_delegates(

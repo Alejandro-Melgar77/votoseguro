@@ -22,6 +22,7 @@ export const DelegateAdminsPage: React.FC = () => {
     email: '',
     full_name: '',
     password: '',
+    role: 'ADMIN_SEGMENT',
   });
 
   const loadData = async () => {
@@ -51,7 +52,7 @@ export const DelegateAdminsPage: React.FC = () => {
     try {
       await api.post(`/elections/${electionId}/delegates`, form);
       setIsModalOpen(false);
-      setForm({ email: '', full_name: '', password: '' });
+      setForm({ email: '', full_name: '', password: '', role: 'ADMIN_SEGMENT' });
       await loadData();
     } catch (err: any) {
       alert(err.message || 'Error al asignar delegado.');
@@ -94,10 +95,10 @@ export const DelegateAdminsPage: React.FC = () => {
               <span className="text-xs font-mono text-stone-400">Elección: {election?.name}</span>
             </div>
             <h2 className="font-title text-xl font-bold text-civic-navy-900 mt-1">
-              Supervisores y Administradores de Segmento (Solo Lectura)
+              Delegados de Segmento y Observadores (Solo Lectura)
             </h2>
             <p className="text-xs text-stone-500 mt-0.5">
-              Los usuarios con rol ADMIN_SEGMENT pueden monitorear el padrón y los resultados de su segmento, con restricción estricta de modificación.
+              Los delegados (ADMIN_SEGMENT) supervisan el padrón y los resultados de su segmento; los observadores (OBSERVER) consultan el monitoreo en vivo, los resultados y la integridad criptográfica.
             </p>
           </div>
 
@@ -107,7 +108,7 @@ export const DelegateAdminsPage: React.FC = () => {
               className="px-4 py-2 bg-civic-navy-900 hover:bg-civic-navy-800 text-white font-semibold text-xs rounded-lg transition-colors flex items-center space-x-1.5 shadow-sm"
             >
               <Plus className="w-4 h-4" />
-              <span>Asignar Delegado</span>
+              <span>Asignar Delegado u Observador</span>
             </button>
           )}
         </div>
@@ -144,7 +145,7 @@ export const DelegateAdminsPage: React.FC = () => {
                     </td>
                     <td className="py-3 px-4">
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-seal-amber">
-                        SOLO LECTURA ({item.permission})
+                        {item.user?.role === 'OBSERVER' ? 'OBSERVADOR' : 'DELEGADO'} · SOLO LECTURA ({item.permission})
                       </span>
                     </td>
                     <td className="py-3 px-4 text-stone-600 font-mono text-[11px]">
@@ -184,14 +185,25 @@ export const DelegateAdminsPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-civic-navy-950/70 backdrop-blur-sm p-4">
           <div className="bg-white rounded-xl border border-stone-300 shadow-2xl max-w-md w-full p-6 space-y-4">
             <h3 className="font-title text-base font-bold text-civic-navy-900 border-b pb-2">
-              Asignar Administrador Delegado (ADMIN_SEGMENT)
+              Asignar Delegado u Observador
             </h3>
             <p className="text-xs text-stone-600">
               Crea o vincula una cuenta con permisos exclusivos de solo lectura para la supervisión de este proceso.
             </p>
             <form onSubmit={handleCreateDelegate} className="space-y-4 text-xs">
               <div>
-                <label className="block font-semibold mb-1">Nombre Completo del Delegado</label>
+                <label className="block font-semibold mb-1">Tipo de Cuenta</label>
+                <select
+                  value={form.role}
+                  onChange={(e) => setForm({ ...form, role: e.target.value as 'ADMIN_SEGMENT' | 'OBSERVER' })}
+                  className="w-full border p-2 rounded bg-white"
+                >
+                  <option value="ADMIN_SEGMENT">Delegado de segmento (ADMIN_SEGMENT)</option>
+                  <option value="OBSERVER">Observador electoral (OBSERVER)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold mb-1">Nombre Completo</label>
                 <input
                   type="text"
                   required
@@ -237,7 +249,7 @@ export const DelegateAdminsPage: React.FC = () => {
                   type="submit"
                   className="px-4 py-1.5 bg-civic-navy-900 text-white rounded font-semibold"
                 >
-                  Asignar Delegado
+                  {form.role === 'OBSERVER' ? 'Crear Observador' : 'Asignar Delegado'}
                 </button>
               </div>
             </form>

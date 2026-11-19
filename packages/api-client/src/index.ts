@@ -168,6 +168,7 @@ export interface AdminSegmentCreateRequest {
   password: string;
   group_id?: string | null;
   node_id?: string | null;
+  role?: 'ADMIN_SEGMENT' | 'OBSERVER';
 }
 
 export interface OrganizationCreateRequest {

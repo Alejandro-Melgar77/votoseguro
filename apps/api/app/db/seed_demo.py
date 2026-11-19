@@ -839,6 +839,151 @@ async def seed_ecuador(session: AsyncSession) -> dict[str, str]:
     }
 
 
+async def seed_gran_estudio_registro(session: AsyncSession) -> None:
+    """
+    Segunda elección de la universidad en fase de REGISTRO ABIERTO, para demostrar
+    el armado del padrón: alta manual, importación, enlaces de activación y
+    autoinscripción con aprobación.
+    """
+    now = datetime.now(timezone.utc)
+    org = (await session.execute(select(Organization).where(Organization.slug == "el-gran-estudio"))).scalar_one()
+    admin = (await session.execute(select(User).where(User.email == "admin@granestudio.edu.bo"))).scalar_one()
+
+    name = "Elección Centro de Estudiantes FICCT 2026"
+    election = (
+        await session.execute(select(Election).where(Election.organization_id == org.id, Election.name == name))
+    ).scalar_one_or_none()
+    if election:
+        return
+
+    reg_close = now + timedelta(days=30)
+    election = Election(
+        organization_id=org.id,
+        name=name,
+        description="Elección del Centro de Estudiantes y Delegados de Carrera (padrón en construcción)",
+        timezone="America/La_Paz",
+        registration_opens_at=now - timedelta(days=1),
+        registration_closes_at=reg_close,
+        voting_opens_at=reg_close + timedelta(days=1),
+        voting_closes_at=reg_close + timedelta(days=2),
+        status=ElectionStatus.REGISTRATION_OPEN,
+        registration_mode="OPEN_WITH_APPROVAL",
+        k_anonymity=3,
+        created_by=admin.id,
+    )
+    session.add(election)
+    await session.flush()
+
+    group = VoterGroup(organization_id=org.id, election_id=election.id, name="ESTUDIANTES FICCT", code="EST")
+    session.add(group)
+    await session.flush()
+
+    lvl_fac = HierarchyLevel(group_id=group.id, depth=1, name="Facultad")
+    lvl_car = HierarchyLevel(group_id=group.id, depth=2, name="Carrera")
+    session.add_all([lvl_fac, lvl_car])
+    await session.flush()
+
+    n_fac = UnitNode(
+        group_id=group.id, level_id=lvl_fac.id, parent_id=None,
+        name="Facultad de Ciencias de la Computación", code="FICCT", path="/FICCT/", depth=1,
+    )
+    session.add(n_fac)
+    await session.flush()
+    carreras: dict[str, UnitNode] = {}
+    for code, car_name in [("INF", "Ingeniería Informática"), ("SIS", "Ingeniería en Sistemas"), ("RED", "Redes y Telecomunicaciones")]:
+        node = UnitNode(
+            group_id=group.id, level_id=lvl_car.id, parent_id=n_fac.id,
+            name=car_name, code=code, path=f"/FICCT/{code}/", depth=2,
+        )
+        session.add(node)
+        carreras[code] = node
+    await session.flush()
+
+    c_pres = Contest(
+        group_id=group.id, scope_level_id=lvl_fac.id, name="Presidente del Centro de Estudiantes",
+        description="Representación estudiantil de la facultad", display_order=1, allow_blank=True, allow_null=True,
+    )
+    c_del = Contest(
+        group_id=group.id, scope_level_id=lvl_car.id, name="Delegado de Carrera",
+        description="Representante estudiantil ante el consejo de carrera", display_order=2, allow_blank=True, allow_null=True,
+    )
+    session.add_all([c_pres, c_del])
+    await session.flush()
+
+    const_pres = Constituency(contest_id=c_pres.id, node_id=n_fac.id)
+    session.add(const_pres)
+    await session.flush()
+    for order, (cand, front) in enumerate(
+        [("Daniela Rojas Vaca", "Frente Estudiantil Renovación"), ("Luis Fernando Arteaga", "Unidad FICCT")], start=1
+    ):
+        session.add(Candidate(constituency_id=const_pres.id, name=cand, party_or_front=front, ballot_order=order))
+
+    delegados = {
+        "INF": [("Andrea Suárez M.", "Lista Azul"), ("Pablo Guzmán R.", "Lista Verde")],
+        "SIS": [("Carla Méndez T.", "Lista Azul"), ("Jorge Salvatierra P.", "Lista Verde")],
+        "RED": [("Marcelo Ortiz L.", "Lista Azul"), ("Fabiola Terrazas C.", "Lista Verde")],
+    }
+    for code, node in carreras.items():
+        const = Constituency(contest_id=c_del.id, node_id=node.id)
+        session.add(const)
+        await session.flush()
+        for order, (cand, front) in enumerate(delegados[code], start=1):
+            session.add(Candidate(constituency_id=const.id, name=cand, party_or_front=front, ballot_order=order))
+    await session.flush()
+
+    voters = [
+        ("CI-7001001", "Gabriel Montaño Rivas", "INF", VoterStatus.ACTIVE),
+        ("CI-7001002", "Lucía Fernández Arias", "INF", VoterStatus.ACTIVE),
+        ("CI-7001003", "Diego Paz Soliz", "INF", VoterStatus.IMPORTED),
+        ("CI-7001004", "Natalia Cuéllar Roca", "SIS", VoterStatus.IMPORTED),
+        ("CI-7001005", "Iván Saucedo Peña", "SIS", VoterStatus.IMPORTED),
+        ("CI-7001006", "Paola Justiniano Vargas", "RED", VoterStatus.IMPORTED),
+        ("CI-7001007", "Ricardo Añez Flores", "RED", VoterStatus.PENDING_APPROVAL),
+        ("CI-7001008", "Sofía Lima Barba", "SIS", VoterStatus.PENDING_APPROVAL),
+    ]
+    for doc, full_name, code, st in voters:
+        session.add(
+            Voter(
+                organization_id=org.id,
+                election_id=election.id,
+                group_id=group.id,
+                node_id=carreras[code].id,
+                document_id=doc,
+                full_name=full_name,
+                email=f"{doc.lower()}@estudiante.granestudio.edu.bo",
+                status=st,
+                activated_at=now if st == VoterStatus.ACTIVE else None,
+            )
+        )
+
+    raw_tok = "token_centro_ficct"
+    session.add(
+        RegistrationLink(
+            organization_id=org.id,
+            election_id=election.id,
+            group_id=group.id,
+            node_id=n_fac.id,
+            token_hash=sha256_hex(raw_tok),
+            raw_token=raw_tok,
+            label="Enlace de activación FICCT",
+            expires_at=reg_close,
+            max_uses=200,
+            uses_count=0,
+            status=LinkStatus.ACTIVE,
+            created_by=admin.id,
+            created_at=now,
+        )
+    )
+    await session.flush()
+
+    try:
+        election.config_hash = sha256_hex(canonical_json(await canonical_election_dump(session, election.id)))
+    except Exception:
+        election.config_hash = sha256_hex(f"config_hash_{election.id}")
+    election.published_at = now
+    await session.commit()
+
+
 async def run_seed_demo(session: AsyncSession | None = None) -> dict[str, str]:
     """Punto de entrada programático para ejecutar el sembrado demo."""
     from app.core.config import settings
@@ -846,11 +991,13 @@ async def run_seed_demo(session: AsyncSession | None = None) -> dict[str, str]:
         raise RuntimeError("El sembrado de demostración está deshabilitado en producción.")
     if session is not None:
         r1 = await seed_gran_estudio(session)
+        await seed_gran_estudio_registro(session)
         r2 = await seed_ecuador(session)
         return {"status": "success", "org1": r1["organization"], "org2": r2["organization"]}
 
     async with async_session_factory() as s:
         r1 = await seed_gran_estudio(s)
+        await seed_gran_estudio_registro(s)
         r2 = await seed_ecuador(s)
         return {"status": "success", "org1": r1["organization"], "org2": r2["organization"]}
 
