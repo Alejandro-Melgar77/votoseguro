@@ -1,0 +1,16 @@
+diff --git a/ios/ExpoSpeechRecognizer.swift b/ios/ExpoSpeechRecognizer.swift
+index 3a39cc0c823f71fea88eaf0e59794855405de0a9..cb60ca8965292fb61a3a4a58072e6a42119bcc0a 100644
+--- a/ios/ExpoSpeechRecognizer.swift
++++ b/ios/ExpoSpeechRecognizer.swift
+@@ -470,9 +470,8 @@ actor ExpoSpeechRecognizer: ObservableObject {
+     // These won't get emitted to the user, however
+     request.shouldReportPartialResults = options.interimResults || !options.continuous
+ 
+-    if recognizer.supportsOnDeviceRecognition {
+-      request.requiresOnDeviceRecognition = options.requiresOnDeviceRecognition
+-    }
++    // Never fall back to a network recognizer when the ballot requested local STT.
++    request.requiresOnDeviceRecognition = options.requiresOnDeviceRecognition
+ 
+     if let taskHint = options.iosTaskHint {
+       request.taskHint = taskHint.sfSpeechRecognitionTaskHint

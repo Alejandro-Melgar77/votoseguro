@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 from app.core.config import settings
+from app.db.session import database_connect_args
 from app.db.models import Base
 
 # Configuración de loggers
@@ -51,6 +52,7 @@ async def run_async_migrations() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=database_connect_args(),
     )
 
     async with connectable.connect() as connection:

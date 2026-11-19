@@ -267,7 +267,7 @@ async def test_e2e_ceremony_setup_voting_closed_and_shamir_unlock(
     assert len(setup_data["key_ceremony_hash"]) == 64
     assert len(setup_data["trustees"]) == 5
 
-    trustee_tokens = [t["demo_share_token"] for t in setup_data["trustees"]]
+    trustee_tokens = [t["share_token"] for t in setup_data["trustees"]]
     assert all(t.startswith("VS-SHARE-") for t in trustee_tokens)
 
     # 4. Consultar Estado de Ceremonia: GET /api/v1/elections/{id}/shamir/status

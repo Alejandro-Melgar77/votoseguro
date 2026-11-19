@@ -30,7 +30,7 @@ from app.crypto.shamir import (
     pack_paillier_private_key,
     split_secret,
 )
-from app.crypto.vote_codec import default_vote_codec
+from app.crypto.vote_codec import default_vote_codec, PlaintextVoteCodec
 from app.db.models.election import Election, ElectionStatus, ElectoralTrusteeShare
 from app.db.models.structure import Candidate, Constituency, Contest, UnitNode, VoterGroup
 from app.db.models.voter import Voter, VoterStatus
@@ -499,41 +499,12 @@ class BallotService:
         nullifiers: list[str] = []
         votes_to_insert: list[Vote] = []
 
-        # Inicializar o resolver clave pública Paillier para la elección (S3-01)
         paillier_pk = None
         if election.paillier_public_n:
-            try:
-                paillier_pk = paillier.PaillierPublicKey(int(election.paillier_public_n))
-            except Exception:
-                paillier_pk = None
-        elif election.encryption_scheme == "PAILLIER_HOMOMORPHIC":
-            key_size = election.paillier_key_size or 1024
-            pub, priv = paillier.generate_paillier_keypair(n_length=key_size)
-            election.paillier_public_n = str(pub.n)
-            election.paillier_public_key = json.dumps({"n": str(pub.n), "key_size": key_size})
-            election.shamir_prime_modulus = str(DEFAULT_SHAMIR_PRIME)
-            # Fragmentar con Shamir y registrar compromisos
-            secret_s = pack_paillier_private_key(priv.p, priv.q)
-            shares = split_secret(secret_s, election.shamir_threshold_k or 3, election.shamir_total_n or 5)
-            for x_val, y_val in shares:
-                token = format_share(x_val, election.shamir_threshold_k or 3, election.shamir_total_n or 5, y_val)
-                commit = compute_share_commitment(election.id, x_val, y_val)
-                db.add(
-                    ElectoralTrusteeShare(
-                        organization_id=election.organization_id,
-                        election_id=election.id,
-                        share_index=x_val,
-                        trustee_name=f"Vocal {x_val} - Custodio Institucional",
-                        trustee_email=f"vocal{x_val}@corte.edu.bo",
-                        commitment_hash=commit,
-                        demo_share_token=token,
-                        submitted_for_tally=False,
-                        created_at=datetime.now(timezone.utc),
-                    )
-                )
-            paillier_pk = pub
-            del priv
-            del secret_s
+            paillier_pk = paillier.PaillierPublicKey(int(election.paillier_public_n))
+        if settings.ENVIRONMENT == "production" and (not paillier_pk or not election.key_ceremony_hash):
+            raise ConflictException("Debe completar la ceremonia criptográfica antes de recibir votos.")
+        codec = default_vote_codec if paillier_pk else PlaintextVoteCodec()
 
         for selection in payload.selections:
             contest_section = expected_constituencies[selection.constituency_id]
@@ -576,7 +547,7 @@ class BallotService:
                 option_keys.append("NULL")
 
             # Invariante #13: Codificación / Cifrado Homomórfico del voto (S3-01)
-            encoded_payload = default_vote_codec.encode(
+            encoded_payload = codec.encode(
                 selection.choice_type.value,
                 selection.candidate_id,
                 public_key=paillier_pk,
@@ -587,8 +558,8 @@ class BallotService:
             v = Vote(
                 election_id=election.id,
                 constituency_id=selection.constituency_id,
-                choice_type=selection.choice_type,
-                candidate_id=selection.candidate_id,
+                choice_type=None if paillier_pk else selection.choice_type,
+                candidate_id=None if paillier_pk else selection.candidate_id,
                 encoded_payload=encoded_payload,
                 segment_path=voter.node.path if voter.node else "",
                 filters_snapshot=voter.attributes or {},

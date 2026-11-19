@@ -26,6 +26,8 @@ dependencies = [
     "aiosmtplib>=3.0.2",
     "email-validator>=2.2.0",
     "phe>=1.5.0",
+    "redis>=5.0",
+    "boto3>=1.35",
     "reportlab>=4.2.0",
     "openpyxl>=3.1.5",
 ]
@@ -36,6 +38,7 @@ build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 python_files = "test_*.py"
 

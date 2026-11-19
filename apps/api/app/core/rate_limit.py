@@ -16,9 +16,7 @@ def custom_key_func(request: Request) -> str:
     """
     Obtiene la IP remota respetando cabeceras de proxy (X-Forwarded-For).
     """
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    # Uvicorn valida primero el proxy de confianza; no aceptar IP arbitraria del cliente.
     return get_remote_address(request)
 
 
@@ -27,6 +25,7 @@ limiter = Limiter(
     enabled=settings.RATE_LIMIT_ENABLED,
     default_limits=["120/minute"],
     headers_enabled=False,
+    storage_uri=settings.RATE_LIMIT_STORAGE_URI,
 )
 
 

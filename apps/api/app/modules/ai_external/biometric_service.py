@@ -9,6 +9,9 @@ Cumple con la Invariante #15 y los Principios de Privacidad Cívica:
 """
 import base64
 import logging
+import io
+import binascii
+from PIL import Image, UnidentifiedImageError
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -80,7 +83,7 @@ class BiometricVerificationService:
                 document_id=doc_hash,
                 explicit_consent_given=bool(has_consent),
                 verification_channel="ALTERNATIVE_CODE_VERIFICATION",
-                verdict="VERIFIED_BY_FALLBACK",
+                verdict="MANUAL_REVIEW_REQUIRED",
                 confidence_band="MANUAL",
                 explanation_es="El votante optó por el canal alternativo seguro mediante código de activación o revisión presencial en mesa.",
                 images_persisted=False,
@@ -104,13 +107,13 @@ class BiometricVerificationService:
             )
 
             return BiometricVerifyResponse(
-                match_verdict="MATCH_PROBABLE",
-                verdict="VERIFIED_BY_FALLBACK",
+                match_verdict="INCONCLUSIVE",
+                verdict="MANUAL_REVIEW_REQUIRED",
                 confidence_band="MANUAL",
-                confidence_note="Verificación manual/código activada satisfactoriamente.",
-                liveness_disclaimer="Canal cívico alternativo validado.",
-                requires_human_or_code_fallback=False,
-                explanation_es="Activación alternativa completada exitosamente sin requerir biometría.",
+                confidence_note="Canal manual/código seleccionado; verificación pendiente.",
+                liveness_disclaimer="La mesa o credencial debe completar la verificación.",
+                requires_human_or_code_fallback=True,
+                explanation_es="Continúe con su credencial de activación o solicite revisión de la mesa. Elegir este canal no verifica por sí solo su identidad.",
                 images_persisted=False,
                 ai_source="CIVIC_FALLBACK",
                 audit_id=audit_entry.id,
@@ -141,31 +144,35 @@ class BiometricVerificationService:
 
         # 5. Procesamiento en memoria volátil y destrucción obligatoria en finally (Invariante #15)
         ai_payload_result: Optional[BiometricVerifyAiPayload] = None
+        def image_mime(raw: str) -> str:
+            try:
+                data = base64.b64decode(raw, validate=True)
+                if len(data) > MAX_IMAGE_SIZE_BYTES:
+                    raise ValueError("Imagen demasiado grande")
+                with Image.open(io.BytesIO(data)) as image:
+                    if image.width * image.height > 20_000_000 or min(image.size) < 64:
+                        raise ValueError("Dimensiones de imagen inválidas")
+                    mime = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}.get(image.format)
+                    image.verify()
+                    if not mime:
+                        raise ValueError("Formato no admitido")
+                    return mime
+            except (ValueError, binascii.Error, UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+                raise HTTPException(status_code=422, detail="Adjunte fotografías JPG, PNG o WebP válidas, de hasta 3 MB.") from exc
+
         images_for_gemini = [
-            {"mime_type": "image/jpeg", "data": selfie_raw},
-            {"mime_type": "image/jpeg", "data": id_card_raw},
+            {"mime_type": image_mime(selfie_raw), "data": selfie_raw},
+            {"mime_type": image_mime(id_card_raw), "data": id_card_raw},
         ]
 
         def fallback_biometrics() -> BiometricVerifyAiPayload:
             """Fallback determinista que comprueba integridad sintáctica sin IA externa."""
-            is_valid_format = len(selfie_raw) > 50 and len(id_card_raw) > 50
-            if is_valid_format:
-                return BiometricVerifyAiPayload(
-                    match_verdict="MATCH_PROBABLE",
-                    confidence_band="HIGH",
-                    confidence_note="Estructura de imagen válida. Cotejo determinista en modo degradado.",
-                    liveness_disclaimer="Verificación asistida en modo degradado; sujeta a ratificación de mesa.",
-                    requires_human_or_code_fallback=False,
-                    explanation_es="Las imágenes presentan formato y nitidez compatibles con cotejo de identidad.",
-                    ai_source="DETERMINISTIC_FALLBACK",
-                )
             return BiometricVerifyAiPayload(
-                match_verdict="INCONCLUSIVE",
-                confidence_band="LOW",
-                confidence_note="Imágenes con resolución insuficiente o formato no reconocible.",
-                liveness_disclaimer="Se requiere validación por canal alternativo.",
+                match_verdict="INCONCLUSIVE", confidence_band="LOW",
+                confidence_note="El cotejo facial no está disponible.",
+                liveness_disclaimer="No se confirmó la identidad. Continúe con credencial o mesa electoral.",
                 requires_human_or_code_fallback=True,
-                explanation_es="No fue posible confirmar los rasgos faciales con certeza suficiente.",
+                explanation_es="No fue posible cotejar los rostros. Se requiere verificación por el canal alternativo.",
                 ai_source="DETERMINISTIC_FALLBACK",
             )
 

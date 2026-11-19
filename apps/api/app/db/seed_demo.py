@@ -827,6 +827,9 @@ async def seed_ecuador(session: AsyncSession) -> dict[str, str]:
 
 async def run_seed_demo(session: AsyncSession | None = None) -> dict[str, str]:
     """Punto de entrada programático para ejecutar el sembrado demo."""
+    from app.core.config import settings
+    if settings.ENVIRONMENT == "production":
+        raise RuntimeError("El sembrado de demostración está deshabilitado en producción.")
     if session is not None:
         r1 = await seed_gran_estudio(session)
         r2 = await seed_ecuador(session)

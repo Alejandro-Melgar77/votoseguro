@@ -36,6 +36,7 @@ import { VoiceAccessibleBallotController } from '@/components/electoral/VoiceAcc
 import { ElectoralFaqAssistantWidget } from '@/components/electoral/ElectoralFaqAssistantWidget';
 
 export const VoterBallotBoothPage: React.FC = () => {
+  const { t } = useI18n();
   // Estado del flujo: 'login' | 'ballot' | 'review' | 'receipt'
   const [step, setStep] = useState<'login' | 'ballot' | 'receipt'>('login');
 
@@ -147,7 +148,7 @@ export const VoterBallotBoothPage: React.FC = () => {
       [contestId]: {
         choice_type: 'BLANK',
         candidate_id: null,
-        display_label: 'Voto en Blanco',
+        display_label: t('booth.blank_vote'),
       },
     }));
   };
@@ -158,7 +159,7 @@ export const VoterBallotBoothPage: React.FC = () => {
       [contestId]: {
         choice_type: 'NULL',
         candidate_id: null,
-        display_label: 'Voto Nulo',
+        display_label: t('booth.null_vote'),
       },
     }));
   };
@@ -484,7 +485,7 @@ export const VoterBallotBoothPage: React.FC = () => {
                         {selected ? (
                           <span className="inline-flex items-center space-x-1 px-2 py-1 bg-emerald-100 text-emerald-900 rounded-full text-2xs font-bold">
                             <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                            <span>Seleccionado</span>
+                            <span>{t('booth.selected')}</span>
                           </span>
                         ) : (
                           <span className="px-2 py-1 bg-amber-100 text-amber-900 rounded-full text-2xs font-bold">
@@ -553,7 +554,7 @@ export const VoterBallotBoothPage: React.FC = () => {
                                 : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
                             }`}
                           >
-                            Voto en Blanco
+                            {t('booth.blank_vote')}
                           </button>
                         )}
                         {contest.allow_null && (
@@ -566,7 +567,7 @@ export const VoterBallotBoothPage: React.FC = () => {
                                 : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100'
                             }`}
                           >
-                            Voto Nulo
+                            {t('booth.null_vote')}
                           </button>
                         )}
                       </div>
@@ -595,7 +596,7 @@ export const VoterBallotBoothPage: React.FC = () => {
                 onClick={() => setShowReviewModal(true)}
                 className="w-full sm:w-auto px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-bold shadow transition-colors flex items-center justify-center space-x-2 disabled:opacity-40"
               >
-                <span>Revisar y Emitir Mi Voto</span>
+                <span>{t('booth.review_ballot')}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -611,7 +612,7 @@ export const VoterBallotBoothPage: React.FC = () => {
               <div className="bg-civic-navy-900 text-white p-4 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Vote className="w-5 h-5 text-emerald-400" />
-                  <h3 className="text-sm font-bold font-serif">Confirmación Definitiva de Sufragio</h3>
+                  <h3 className="text-sm font-bold font-serif">{t('booth.confirm_vote_title')}</h3>
                 </div>
               </div>
 
@@ -626,7 +627,7 @@ export const VoterBallotBoothPage: React.FC = () => {
                     return (
                       <div key={c.contest_id} className="flex justify-between border-b border-stone-200 pb-1.5 last:border-0 last:pb-0">
                         <span className="text-stone-500 font-semibold">{c.contest_name}:</span>
-                        <span className="font-bold text-stone-900">{sel?.display_label || 'Sin selección'}</span>
+                        <span className="font-bold text-stone-900">{sel?.choice_type === 'BLANK' ? t('booth.blank_vote') : sel?.choice_type === 'NULL' ? t('booth.null_vote') : sel?.display_label || 'Sin selección'}</span>
                       </div>
                     );
                   })}
@@ -674,7 +675,7 @@ export const VoterBallotBoothPage: React.FC = () => {
                     ) : (
                       <>
                         <Check className="w-4 h-4" />
-                        <span>Confirmar y Depositar Votos</span>
+                        <span>{t('booth.emit_button')}</span>
                       </>
                     )}
                   </button>

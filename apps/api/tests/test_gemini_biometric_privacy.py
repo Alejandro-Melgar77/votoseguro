@@ -5,6 +5,8 @@ Pruebas de Invariante para Verificación Facial Asistida Selfie vs. Cédula (IA-
 - Alternativa siempre disponible de verificación por código o mesa electoral.
 """
 import base64
+import io
+from PIL import Image
 import uuid
 from datetime import datetime, timedelta, timezone
 import pytest
@@ -81,8 +83,10 @@ async def test_biometric_verification_images_processed_and_never_persisted(
     unique_marker_selfie = "SECRET_CANARY_SELFIE_BYTE_STREAM_12345"
     unique_marker_id = "SECRET_CANARY_ID_CARD_BYTE_STREAM_67890"
 
-    fake_selfie_b64 = base64.b64encode(f"HEADER_JPEG_{unique_marker_selfie}".encode("utf-8")).decode("utf-8")
-    fake_id_b64 = base64.b64encode(f"HEADER_JPEG_{unique_marker_id}".encode("utf-8")).decode("utf-8")
+    image_buffer = io.BytesIO()
+    Image.new("RGB", (128, 128), "white").save(image_buffer, format="JPEG")
+    fake_selfie_b64 = base64.b64encode(image_buffer.getvalue()).decode("ascii")
+    fake_id_b64 = fake_selfie_b64
 
     payload = {
         "election_id": str(election.id),
@@ -173,8 +177,10 @@ async def test_biometric_fallback_alternative_code_without_images(
     assert res.status_code == 200, res.text
     data = res.json()
 
-    assert data["verdict"] == "VERIFIED_BY_FALLBACK"
+    assert data["verdict"] == "MANUAL_REVIEW_REQUIRED"
     assert data["confidence_band"] == "MANUAL"
+    assert data["requires_human_or_code_fallback"] is True
+    assert data["match_verdict"] == "INCONCLUSIVE"
     assert data["images_persisted"] is False
     assert data["ai_source"] == "CIVIC_FALLBACK"
 

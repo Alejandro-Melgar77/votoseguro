@@ -1,3 +1,5 @@
+> Actualización: la prueba k6 usa una credencial distinta por iteración, requiere datos provisionados y no genera credenciales ficticias como respaldo. El aprovisionador exige una base aislada y está bloqueado en production. No hay una medición nueva de p95 certificada por esta preparación.
+
 # Guía Oficial de Pruebas de Carga y Concurrencia Masiva (k6) — VotoSeguro v3.0.0
 
 **Módulo:** `S3-04` — Certificación de Rendimiento, Seguridad y Escalabilidad  

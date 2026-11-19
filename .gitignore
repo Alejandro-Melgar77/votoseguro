@@ -65,3 +65,16 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 *.log
+
+# Generated browser OCR runtime and language files
+apps/web/public/ocr/
+apps/api/.venv/
+.patch-work/
+apps/web/test-results/
+apps/web/playwright-report/
+.mobile-build-check/
+
+# Private runtime credentials and generated load-test identities
+*accessKeys*.csv
+scripts/ai_tunnel.env
+tests/load/voters_credentials.json

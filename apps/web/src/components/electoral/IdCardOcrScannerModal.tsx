@@ -1,9 +1,10 @@
 /**
  * Modal de Escaneo y Extracción de Cédula de Identidad (IA-L3).
  * Cumple la Invariante #15: CERO persistencia ni transmisión de imágenes al servidor.
- * El usuario puede subir una foto (procesada en canvas local) o seleccionar una plantilla demo en 1 clic.
+ * Lee fotografías con Tesseract en el dispositivo. Solo se envía texto confirmado para extraer campos.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { recognizeIdCard } from '../../lib/id-card-ocr';
 import { api } from '../../lib/api';
 import { IdCardExtractionResponse } from '@votoseguro/api-client';
 import { AiEngineTelemetryBadge } from './AiEngineTelemetryBadge';
@@ -15,38 +16,6 @@ interface IdCardOcrScannerModalProps {
   electionId?: string;
 }
 
-const DEMO_TEMPLATES = [
-  {
-    label: 'Cédula Demo 1 (Juan Carlos Pérez - 8001002)',
-    text: `ESTADO PLURINACIONAL DE BOLIVIA
-CEDULA DE IDENTIDAD
-N° 8001002 SC
-NOMBRES: JUAN CARLOS
-APELLIDOS: PEREZ GOMEZ
-FECHA DE NACIMIENTO: 14/05/2001
-ESTADO CIVIL: SOLTERO`,
-  },
-  {
-    label: 'Cédula Demo 2 (María Elena Rojas - 8001003)',
-    text: `ESTADO PLURINACIONAL DE BOLIVIA
-CEDULA DE IDENTIDAD
-N° 8001003 SC
-NOMBRES: MARIA ELENA
-APELLIDOS: ROJAS SUAREZ
-FECHA DE NACIMIENTO: 22/09/2002
-ESTADO CIVIL: SOLTERA`,
-  },
-  {
-    label: 'Cédula Demo 3 (Roberto Callau - 8001008)',
-    text: `ESTADO PLURINACIONAL DE BOLIVIA
-CEDULA DE IDENTIDAD
-N° 8001008 SC
-NOMBRES: ROBERTO
-APELLIDOS: CALLAU MELGAR
-FECHA DE NACIMIENTO: 10/11/1985
-PROFESION: DOCENTE`,
-  },
-];
 
 export const IdCardOcrScannerModal: React.FC<IdCardOcrScannerModalProps> = ({
   isOpen,
@@ -54,40 +23,31 @@ export const IdCardOcrScannerModal: React.FC<IdCardOcrScannerModalProps> = ({
   onConfirm,
   electionId,
 }) => {
-  const [rawText, setRawText] = useState<string>(DEMO_TEMPLATES[0].text);
+  const [rawText, setRawText] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [extractedResult, setExtractedResult] = useState<IdCardExtractionResponse | null>(null);
 
+  const [ocrProgress, setOcrProgress] = useState<number | null>(null);
+  const scanId = useRef(0);
+  useEffect(() => {
+    if (!isOpen) { scanId.current++; setRawText(''); setExtractedResult(null); setError(null); setOcrProgress(null); }
+  }, [isOpen]);
+  useEffect(() => () => { scanId.current++; }, []);
   if (!isOpen) return null;
 
-  const handleSelectTemplate = (text: string) => {
-    setRawText(text);
-    setExtractedResult(null);
-    setError(null);
-  };
-
-  const handleProcessImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProcessImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Invariante #15: Cargar en Image/Canvas localmente para simular OCR de cámara y descartar buffer
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      // Simulación de lectura óptica en dispositivo sin enviar la imagen
-      const img = new Image();
-      img.onload = () => {
-        // En un dispositivo real con Tesseract.js / MLKit, aquí se extraen las líneas de texto.
-        // Simulamos la extracción de texto OCR desde el documento analizado localmente:
-        const simulatedOcr = `ESTADO PLURINACIONAL DE BOLIVIA\nCEDULA DE IDENTIDAD\nN° 8001002 SC\nNOMBRES: JUAN CARLOS\nAPELLIDOS: PEREZ GOMEZ\nFECHA DE NACIMIENTO: 14/05/2001\n[Imagen analizada en canvas local: ${img.width}x${img.height}px y descartada de memoria]`;
-        setRawText(simulatedOcr);
-        setExtractedResult(null);
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-    // Limpiar input
     e.target.value = '';
+    if (!file) return;
+    const id = ++scanId.current;
+    setError(null); setRawText(''); setExtractedResult(null); setOcrProgress(0);
+    try {
+      const text = await recognizeIdCard(file, value => { if (scanId.current === id) setOcrProgress(value); });
+      if (scanId.current === id) setRawText(text);
+    } catch (err) {
+      if (scanId.current === id) setError(err instanceof Error ? err.message : 'No se pudo leer la foto.');
+    } finally { if (scanId.current === id) setOcrProgress(null); }
   };
 
   const handleExtract = async () => {
@@ -156,44 +116,12 @@ export const IdCardOcrScannerModal: React.FC<IdCardOcrScannerModalProps> = ({
             </div>
           </div>
 
-          {/* Plantillas de Demostración de 1 Clic */}
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-              1. Seleccione una Cédula Demo o capture foto desde su dispositivo:
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {DEMO_TEMPLATES.map((tmpl, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleSelectTemplate(tmpl.text)}
-                  className={`p-2 rounded-lg border text-left text-xs font-medium transition-all ${
-                    rawText === tmpl.text
-                      ? 'border-emerald-600 bg-emerald-50/70 text-emerald-900 ring-1 ring-emerald-600'
-                      : 'border-gray-200 hover:border-gray-300 bg-gray-50 text-gray-700'
-                  }`}
-                >
-                  <div className="font-semibold text-gray-900 truncate">Demo {idx + 1}</div>
-                  <div className="text-[11px] text-gray-500 truncate">{tmpl.label.split('(')[1]?.replace(')', '')}</div>
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-2.5 flex items-center gap-3">
-              <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-xs font-medium text-gray-700 shadow-sm transition-colors">
-                <span>📷</span> Capturar / Subir Foto
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleProcessImage}
-                />
-              </label>
-              <span className="text-[11px] text-gray-500">
-                (El OCR se ejecuta en navegador sin enviar la foto)
-              </span>
-            </div>
+            <label className="block text-xs font-semibold mb-2">Fotografíe la cédula completa, con buena luz y sin reflejos.</label>
+            <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment"
+              aria-label="Fotografía de la cédula" disabled={ocrProgress !== null || loading} onChange={handleProcessImage} />
+            {ocrProgress !== null && <p role="status">Leyendo documento: {Math.round(ocrProgress * 100)} %</p>}
+            <p className="text-xs mt-2">La foto se lee en este dispositivo. Revise el texto antes de extraer los campos.</p>
           </div>
 
           {/* Texto OCR Bruto */}
@@ -214,7 +142,7 @@ export const IdCardOcrScannerModal: React.FC<IdCardOcrScannerModalProps> = ({
             <button
               type="button"
               onClick={handleExtract}
-              disabled={loading}
+              disabled={loading || ocrProgress !== null || !rawText.trim()}
               className="px-4 py-2 rounded-xl bg-[#0B132B] hover:bg-[#162550] text-white font-medium text-xs flex items-center gap-2 transition-colors disabled:opacity-50"
             >
               {loading ? (

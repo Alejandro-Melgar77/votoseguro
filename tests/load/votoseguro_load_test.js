@@ -12,6 +12,7 @@
  */
 
 import http from 'k6/http';
+import execution from 'k6/execution';
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import { Trend, Counter, Rate } from 'k6/metrics';
@@ -43,31 +44,19 @@ const voters = new SharedArray('voters credentials', function () {
     }
   }
 
-  // Generate 1000 fallback records to allow dry-run syntax verification
-  const synthetic = [];
-  for (let i = 1; i <= 1000; i++) {
-    synthetic.push({
-      voter_index: i,
-      document_id: `CI-LOAD-${String(i).padStart(5, '0')}`,
-      credential_code: `VS-LOAD-${String(i).padStart(5, '0')}-TEST`,
-      election_id: '00000000-0000-0000-0000-000000000001',
-      contest_id: '00000000-0000-0000-0000-000000000002',
-      constituency_id: '00000000-0000-0000-0000-000000000003',
-      choice_type: 'CANDIDATE',
-      candidate_id: '00000000-0000-0000-0000-000000000004',
-    });
-  }
-  return synthetic;
+  throw new Error('Genere primero voters_credentials.json con credenciales reales del entorno de carga.');
 });
 
 // 2. Concurrency Stages & Strict Quality Gates
 export const options = {
-  stages: [
-    { duration: '30s', target: 250 },   // Stage 1: Ramp up from 0 to 250 VUs
-    { duration: '45s', target: 1000 },  // Stage 2: Ramp up from 250 to 1000 VUs (Peak concurrency)
-    { duration: '30s', target: 1000 },  // Stage 3: Steady-state sustain at 1000 VUs
-    { duration: '15s', target: 0 },     // Stage 4: Cool-down ramp to 0 VUs
-  ],
+  scenarios: {
+    unique_voters: {
+      executor: 'shared-iterations',
+      vus: Math.min(Number(__ENV.VUS || 1000), voters.length),
+      iterations: voters.length,
+      maxDuration: '10m',
+    },
+  },
   thresholds: {
     // Non-functional requirement Section 12: Sub-2-second p95 for atomic cast
     'http_req_duration{endpoint:ballot_cast}': ['p(95)<2000'],
@@ -82,14 +71,13 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:8000/api/v1';
 
 export default function () {
   // Distribute unique voter records among VUs and iterations
-  const vuIndex = (__VU - 1 + __ITER) % voters.length;
+  const vuIndex = execution.scenario.iterationInTest;
   const voter = voters[vuIndex];
 
   // Distribute virtual IPs to prevent single-IP rate-limiting bottlenecks
   const clientIp = `10.50.${(__VU % 250) + 1}.${(__ITER % 250) + 1}`;
   const commonHeaders = {
     'Content-Type': 'application/json',
-    'X-Forwarded-For': clientIp,
   };
 
   // ---------------------------------------------------------------------------
@@ -162,16 +150,10 @@ export default function () {
   let castSelections = [];
   try {
     const ballotData = JSON.parse(ballotRes.body);
-    const firstContest = ballotData.contests[0];
-    const candidateId = firstContest.candidates && firstContest.candidates.length > 0
-      ? firstContest.candidates[__ITER % firstContest.candidates.length].id
-      : null;
-
-    castSelections.push({
-      contest_id: firstContest.contest_id,
-      constituency_id: firstContest.constituency_id,
-      choice_type: candidateId ? 'CANDIDATE' : 'BLANK',
-      candidate_id: candidateId,
+    castSelections = ballotData.contests.map(contest => {
+      const candidateId = contest.candidates?.length ? contest.candidates[vuIndex % contest.candidates.length].id : null;
+      return { contest_id: contest.contest_id, constituency_id: contest.constituency_id,
+        choice_type: candidateId ? 'CANDIDATE' : 'BLANK', candidate_id: candidateId };
     });
   } catch (err) {
     // Fallback to voter object specification

@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { scanIdCard } from '../lib/id-card-ocr';
 import { mobileApi } from '../api/mobile-client';
 import { IdCardExtractionResponse, PublicActivationResponse } from '@votoseguro/api-client';
 
@@ -18,20 +19,6 @@ interface VoterRegistrationScreenProps {
   onNavigate: (screen: 'home' | 'register' | 'booth' | 'receipt' | 'faq', params?: any) => void;
 }
 
-const OCR_DEMO_SAMPLES = [
-  {
-    name: 'Cédula Demo 1 (Juan Carlos Pérez - 8001002)',
-    text: 'ESTADO PLURINACIONAL DE BOLIVIA CEDULA DE IDENTIDAD N° 8001002 SC NOMBRES: JUAN CARLOS APELLIDOS: PEREZ GOMEZ FECHA DE NACIMIENTO: 14/05/2001',
-  },
-  {
-    name: 'Cédula Demo 2 (María Elena Rojas - 8001003)',
-    text: 'ESTADO PLURINACIONAL DE BOLIVIA CEDULA DE IDENTIDAD N° 8001003 SC NOMBRES: MARIA ELENA APELLIDOS: ROJAS SUAREZ FECHA DE NACIMIENTO: 22/09/2002',
-  },
-  {
-    name: 'Cédula Demo 3 (Roberto Callau - 8001008)',
-    text: 'ESTADO PLURINACIONAL DE BOLIVIA CEDULA DE IDENTIDAD N° 8001008 SC NOMBRES: ROBERTO APELLIDOS: CALLAU MELGAR FECHA DE NACIMIENTO: 10/11/1985',
-  },
-];
 
 export const VoterRegistrationScreen: React.FC<VoterRegistrationScreenProps> = ({
   initialToken = '',
@@ -46,7 +33,7 @@ export const VoterRegistrationScreen: React.FC<VoterRegistrationScreenProps> = (
 
   // Estado OCR
   const [showOcrSheet, setShowOcrSheet] = useState(false);
-  const [ocrText, setOcrText] = useState(OCR_DEMO_SAMPLES[0].text);
+  const [ocrText, setOcrText] = useState('');
   const [ocrLoading, setOcrLoading] = useState(false);
   const [extractedOcr, setExtractedOcr] = useState<IdCardExtractionResponse | null>(null);
 
@@ -60,7 +47,7 @@ export const VoterRegistrationScreen: React.FC<VoterRegistrationScreenProps> = (
         raw_ocr_text: ocrText,
       });
       setExtractedOcr(res);
-      setDocumentId(res.ci);
+
     } catch (err: any) {
       Alert.alert('Error OCR', err.message || 'Error al analizar el texto OCR de la cédula.');
     } finally {
@@ -133,28 +120,17 @@ export const VoterRegistrationScreen: React.FC<VoterRegistrationScreenProps> = (
 
           {showOcrSheet && (
             <View style={styles.ocrContent}>
-              <Text style={styles.ocrHelper}>Seleccione una plantilla demo de cédula o edite el texto:</Text>
+              <Text style={styles.ocrHelper}>Tome una foto o seleccione una imagen. Revise el texto antes de continuar.</Text>
               <View style={styles.templateButtonsRow}>
-                {OCR_DEMO_SAMPLES.map((s, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    onPress={() => {
-                      setOcrText(s.text);
-                      setExtractedOcr(null);
-                    }}
-                    style={[
-                      styles.templateChip,
-                      ocrText === s.text && styles.templateChipActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.templateChipText,
-                        ocrText === s.text && styles.templateChipTextActive,
-                      ]}
-                    >
-                      Demo {idx + 1}
-                    </Text>
+                {(['camera', 'library'] as const).map(source => (
+                  <TouchableOpacity key={source} disabled={ocrLoading} style={styles.templateChip}
+                    onPress={async () => {
+                      setOcrLoading(true); setExtractedOcr(null); setOcrText('');
+                      try { const text = await scanIdCard(source); if (text) setOcrText(text); }
+                      catch (err) { Alert.alert('Lectura de cédula', err instanceof Error ? err.message : 'No se pudo leer la imagen.'); }
+                      finally { setOcrLoading(false); }
+                    }}>
+                    <Text style={styles.templateChipText}>{source === 'camera' ? 'Tomar foto' : 'Elegir imagen'}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -186,6 +162,9 @@ export const VoterRegistrationScreen: React.FC<VoterRegistrationScreenProps> = (
                   <Text style={styles.ocrResultField}>Nombres: <Text style={styles.bold}>{extractedOcr.nombres}</Text></Text>
                   <Text style={styles.ocrResultField}>Apellidos: <Text style={styles.bold}>{extractedOcr.apellidos}</Text></Text>
                   <Text style={styles.ocrResultField}>Nacimiento: <Text style={styles.bold}>{extractedOcr.fecha_nacimiento || 'N/A'}</Text></Text>
+                  <TouchableOpacity onPress={() => setDocumentId(extractedOcr.ci)} style={styles.ocrScanBtn}>
+                    <Text style={styles.ocrScanBtnText}>Confirmar y usar este número de cédula</Text>
+                  </TouchableOpacity>
                   <Text style={styles.ocrResultSource}>
                     {extractedOcr.ai_source?.includes('NEURAL_TUNNEL')
                       ? `🧠 Inferencia PC Local vía Túnel Estático (${extractedOcr.model_name || 'votoseguro-lfm3'})`

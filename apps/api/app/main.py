@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import select, text
 
 from slowapi.errors import RateLimitExceeded
@@ -118,6 +119,13 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
+@app.middleware("http")
+async def prevent_sensitive_response_caching(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 # Configuración de CORS
 app.add_middleware(
     CORSMiddleware,
@@ -161,9 +169,9 @@ async def health_check():
     except Exception as e:
         logger.error(f"Falla de salud en base de datos: {e}")
 
-    return {
+    return JSONResponse(status_code=200 if db_status == "healthy" else 503, content={
         "status": "online" if db_status == "healthy" else "degraded",
         "database": db_status,
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT,
-    }
+    })

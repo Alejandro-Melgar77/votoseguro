@@ -235,11 +235,26 @@ class ResultsService:
                 "de la votación (VOTING_CLOSED)."
             )
 
+        if election.paillier_public_n and not election.tally_ceremony_hash:
+            raise ForbiddenException("Los resultados cifrados requieren el quórum de custodios y el escrutinio oficial.")
+
         k = election.k_anonymity
 
         # 2. Cargar todos los votos de la elección
         stmt_votes = select(Vote).where(Vote.election_id == election_id)
         all_votes = (await db.execute(stmt_votes)).scalars().all()
+
+        tally_rows = (await db.execute(select(HomomorphicTallyCell).where(
+            HomomorphicTallyCell.election_id == election_id
+        ))).scalars().all()
+        tally_by_key = {(c.constituency_id, c.cell_scope_type, c.cell_key): c for c in tally_rows}
+
+        def read_cell(constituency_id, scope, key, candidates):
+            cell = tally_by_key.get((constituency_id, scope, key))
+            if not cell or cell.decrypted_counts is None or cell.suppressed_by_k_anonymity:
+                raise ConflictException("Falta una celda verificada del escrutinio oficial.")
+            counts = cell.decrypted_counts
+            return ({c.id: counts.get(str(c.id), 0) for c in candidates}, counts.get("BLANK", 0), counts.get("NULL", 0))
 
         # Agrupar votos por circunscripción
         votes_by_constituency: dict[uuid.UUID, list[Vote]] = {}
@@ -348,6 +363,9 @@ class ResultsService:
                         blank_count = tally_cell.decrypted_counts.get("BLANK", 0)
                         null_count = tally_cell.decrypted_counts.get("NULL", 0)
 
+                    if election.paillier_public_n:
+                        cand_counts, blank_count, null_count = read_cell(const.id, "CONSTITUENCY_TOTAL", "TOTAL", const.candidates)
+
                     candidates_total = sum(cand_counts.values())
                     exact_match = (candidates_total + blank_count + null_count == total_cast)
 
@@ -437,6 +455,9 @@ class ResultsService:
                                             cell_blank += 1
                                         elif cv.choice_type == VoteChoiceType.NULL:
                                             cell_null += 1
+
+                                    if election.paillier_public_n:
+                                        cell_cand_counts, cell_blank, cell_null = read_cell(const.id, "LEVEL_BREAKDOWN", sn.path, const.candidates)
 
                                     cell_cands_dto: list[CandidateResultItem] = []
                                     for c in sorted_cands:
@@ -529,6 +550,10 @@ class ResultsService:
                                             cell_blank += 1
                                         elif cv.choice_type == VoteChoiceType.NULL:
                                             cell_null += 1
+
+                                    if election.paillier_public_n:
+                                        if n_cell:
+                                            cell_cand_counts, cell_blank, cell_null = read_cell(const.id, "FILTER_BREAKDOWN", f"{filter_key}:{val}", const.candidates)
 
                                     cell_cands_dto = [
                                         CandidateResultItem(

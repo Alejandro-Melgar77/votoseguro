@@ -1,3 +1,7 @@
+# Cambios de preparación para AWS
+
+El OCR ahora lee fotografías reales y la voz móvil usa motores nativos locales. Consulte [OCR y voz](docs/OCR_Y_VOZ.md) y [despliegue AWS](docs/DESPLIEGUE_AWS.md) para la configuración y los límites de validación. La infraestructura está preparada; no se ha desplegado en una cuenta AWS. Las declaraciones históricas de certificación que siguen no sustituyen esas verificaciones.
+
 # VotoSeguro v3.0.0 — Plataforma de Voto Electrónico Criptográfico y Transparente con IA
 
 > **INF 422 SB — Ingeniería de Software I (UAGRM)**  

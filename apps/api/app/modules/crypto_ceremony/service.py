@@ -12,6 +12,7 @@ import phe.paillier as paillier
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.dependencies import TenantContext
 from app.core.exceptions import (
     ConflictException,
@@ -72,10 +73,21 @@ class CryptoCeremonyService:
         stmt = select(Election).where(
             Election.id == election_id,
             Election.organization_id == tenant.organization_id,
-        )
+        ).with_for_update()
         election = (await db.execute(stmt)).scalar_one_or_none()
         if not election:
             raise NotFoundException("Elección no encontrada en su institución.")
+
+        if election.key_ceremony_hash or election.paillier_public_n:
+            raise ConflictException("La ceremonia ya fue realizada y sus claves no pueden reemplazarse.")
+        if settings.ENVIRONMENT == "production" and election.status != ElectionStatus.DRAFT:
+            raise ConflictException("La ceremonia de claves debe realizarse antes de publicar la elección.")
+        if req.key_size not in (512, 1024, 2048) or (settings.ENVIRONMENT == "production" and req.key_size < 2048):
+            raise UnprocessableEntityException("En producción se requieren claves Paillier de 2048 bits.")
+        if req.trustees and len(req.trustees) != req.total_n:
+            raise UnprocessableEntityException("Debe indicar exactamente n custodios.")
+        if settings.ENVIRONMENT == "production" and not req.trustees:
+            raise UnprocessableEntityException("Debe identificar a los custodios de esta elección.")
 
         if req.threshold_k < 2:
             raise UnprocessableEntityException("El umbral k debe ser mayor o igual a 2.")
@@ -135,7 +147,7 @@ class CryptoCeremonyService:
                 trustee_name=t_cfg.trustee_name,
                 trustee_email=t_cfg.trustee_email,
                 commitment_hash=commit,
-                demo_share_token=token,
+                demo_share_token=None,
                 submitted_for_tally=False,
                 submitted_at=None,
                 created_at=now_utc,
@@ -147,7 +159,7 @@ class CryptoCeremonyService:
                 trustee_name=t_cfg.trustee_name,
                 trustee_email=t_cfg.trustee_email,
                 commitment_hash=commit,
-                demo_share_token=token,
+                share_token=token,
                 submitted_for_tally=False,
                 submitted_at=None,
             )
@@ -249,7 +261,7 @@ class CryptoCeremonyService:
                 trustee_name=t.trustee_name,
                 trustee_email=t.trustee_email,
                 commitment_hash=t.commitment_hash,
-                demo_share_token=t.demo_share_token,
+                share_token=None,
                 submitted_for_tally=t.submitted_for_tally,
                 submitted_at=t.submitted_at,
             )
@@ -298,7 +310,7 @@ class CryptoCeremonyService:
             raise NotFoundException("Elección no encontrada en su institución.")
 
         # Invariante #11: La votación debe estar cerrada antes de desbloquear el escrutinio
-        if election.status not in (ElectionStatus.VOTING_CLOSED, ElectionStatus.TALLIED):
+        if election.status not in (ElectionStatus.VOTING_CLOSED,):
             raise ConflictException(
                 f"La elección debe encontrarse en estado VOTING_CLOSED para desbloquear el escrutinio oficial "
                 f"(estado actual: {election.status.value})."

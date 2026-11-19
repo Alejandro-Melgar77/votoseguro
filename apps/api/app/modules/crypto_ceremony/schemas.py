@@ -3,12 +3,12 @@ Esquemas Pydantic para la Ceremonia de Claves de Shamir y Escrutinio Homomórfic
 """
 import uuid
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, EmailStr
 
 
 class TrusteeConfig(BaseModel):
     trustee_name: str = Field(..., min_length=2, max_length=150)
-    trustee_email: str = Field(..., min_length=5, max_length=255)
+    trustee_email: EmailStr = Field(..., max_length=255)
 
 
 class TrusteeShareItem(BaseModel):
@@ -16,7 +16,7 @@ class TrusteeShareItem(BaseModel):
     trustee_name: str
     trustee_email: str
     commitment_hash: str
-    demo_share_token: str | None = None
+    share_token: str | None = None
     submitted_for_tally: bool = False
     submitted_at: datetime | None = None
 
@@ -24,9 +24,9 @@ class TrusteeShareItem(BaseModel):
 
 
 class ShamirSetupRequest(BaseModel):
-    key_size: int = Field(default=1024, description="Tamaño de clave Paillier en bits (1024 o 2048)")
+    key_size: int = Field(default=2048, description="Tamaño de clave Paillier en bits (1024 o 2048)")
     threshold_k: int = Field(default=3, ge=2, description="Umbral mínimo de custodios requeridos (k)")
-    total_n: int = Field(default=5, ge=2, description="Total de custodios institucionales (n)")
+    total_n: int = Field(default=5, ge=2, le=20, description="Total de custodios institucionales (n)")
     trustees: list[TrusteeConfig] | None = Field(
         default=None,
         description="Lista de custodios electorales. Si es None, se asignan 5 vocales institucionales por defecto."

@@ -197,8 +197,11 @@ async def test_full_lifecycle_v3_release_certification_and_invariants(
     assert len(key_ceremony_hash) == 64
 
     # Custodios electorales de Shamir (fragmentos emitidos y clave privada destruida)
-    trustee_shares = [t["demo_share_token"] for t in ceremony_data["trustees"]]
+    trustee_shares = [t["share_token"] for t in ceremony_data["trustees"]]
     assert len(trustee_shares) == 3
+    status_response = await client.get(f"/elections/{election_id}/shamir/status", headers=admin_headers)
+    assert status_response.status_code == 200
+    assert all(t["share_token"] is None for t in status_response.json()["trustees"])
     assert all(s.startswith("VS-SHARE-") for s in trustee_shares)
 
     # Estado de la ceremonia de claves
@@ -456,6 +459,10 @@ async def test_full_lifecycle_v3_release_certification_and_invariants(
         assert not hasattr(sv, "voter_id") or sv.__dict__.get("voter_id") is None
         # Invariante #13: Cifrado Paillier presente en cada voto
         assert '"scheme":"PAILLIER_V1"' in sv.encoded_payload
+        assert sv.candidate_id is None
+        assert sv.choice_type is None
+        assert '"candidate_id"' not in sv.encoded_payload
+        assert '"choice_type"' not in sv.encoded_payload
         assert '"ciphertexts":[' in sv.encoded_payload
         # Invariante #19: Cadena de hashes inmutable
         assert sv.chain_index >= 1

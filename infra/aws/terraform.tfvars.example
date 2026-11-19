@@ -1,0 +1,14 @@
+region            = "us-east-1"
+name              = "votoseguro"
+api_domain        = "api.su-dominio.org"
+certificate_arn   = "arn:aws:acm:us-east-1:123456789012:certificate/REEMPLAZAR"
+admin_email       = "administracion@su-dominio.org"
+alarm_email       = "operaciones@su-dominio.org"
+route53_zone_id   = ""
+llm_base_url      = "https://SU-ENDPOINT-EXISTENTE/v1"
+llm_model_name    = "votoseguro-lfm3"
+smtp_host         = "email-smtp.us-east-1.amazonaws.com"
+smtp_from_email   = "notificaciones@su-dominio.org"
+db_multi_az       = true
+api_count         = 2
+service_enabled   = false

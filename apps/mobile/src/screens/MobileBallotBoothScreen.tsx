@@ -20,6 +20,7 @@ import {
   CastReceiptResponse,
   VoteSelectionItem,
 } from '@votoseguro/api-client';
+import { useLocalBallotVoice } from '../lib/use-local-ballot-voice';
 import { parseMobileVoiceBallotCommand } from '../lib/voice-ballot-grammar';
 
 interface MobileBallotBoothScreenProps {
@@ -52,7 +53,7 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
   // Accesibilidad por Voz (IA-L4)
   const [voiceModeActive, setVoiceModeActive] = useState(false);
   const [spokenFeedback, setSpokenFeedback] = useState<string | null>(null);
-  const [voiceCommandInput, setVoiceCommandInput] = useState('');
+  const voice = useLocalBallotVoice(text => handleVoiceCommand(text), voiceModeActive && (step === 'ballot' || step === 'confirm'));
 
   // Emisión y Comprobante
   const [castLoading, setCastLoading] = useState(false);
@@ -115,6 +116,7 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
 
   const speak = (message: string) => {
     setSpokenFeedback(message);
+    void voice.speak(message);
   };
 
   // Manejador del motor de gramática de voz (IA-L4)
@@ -257,7 +259,7 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
         break;
     }
 
-    setVoiceCommandInput('');
+
   };
 
   const handleSelectCandidate = (contestId: string, candidate: CandidateBallotItem, order: number) => {
@@ -545,7 +547,7 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
                 </View>
               )}
 
-              <Text style={styles.simulatorLabel}>Simulador de Comandos de Voz Rápidos:</Text>
+              <Text style={styles.simulatorLabel}>Acciones accesibles:</Text>
               <View style={styles.voicePillsRow}>
                 <TouchableOpacity
                   style={styles.voicePill}
@@ -586,23 +588,9 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
                 </TouchableOpacity>
               </View>
 
-              {/* Entrada de texto simulada para comandos libres */}
-              <View style={styles.voiceInputRow}>
-                <TextInput
-                  style={styles.voiceTextInput}
-                  value={voiceCommandInput}
-                  onChangeText={setVoiceCommandInput}
-                  placeholder="Dictar comando por texto (ej. votar por opción 1)..."
-                  placeholderTextColor="#9CA3AF"
-                  onSubmitEditing={() => handleVoiceCommand(voiceCommandInput)}
-                />
-                <TouchableOpacity
-                  style={styles.voiceSendBtn}
-                  onPress={() => handleVoiceCommand(voiceCommandInput)}
-                >
-                  <Text style={styles.voiceSendText}>Dictar</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity style={styles.voiceSendBtn} onPress={voice.start} accessibilityLabel="Activar micrófono local">
+                <Text style={styles.voiceSendText}>{voice.listening ? 'Detener micrófono' : 'Escuchar comando'}</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -837,6 +825,9 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
           {voiceModeActive && (
             <View style={styles.voiceConsoleCard}>
               <Text style={styles.voiceConsoleTitle}>🎙️ Confirmación por Voz (IA-L4)</Text>
+              <TouchableOpacity onPress={voice.start} style={styles.voiceSendBtn}>
+                <Text style={styles.voiceSendText}>{voice.listening ? 'Detener micrófono' : 'Escuchar confirmación'}</Text>
+              </TouchableOpacity>
               <Text style={styles.fieldHint}>
                 Diga en voz alta: "confirmar emisión definitiva" o presione el botón de abajo.
               </Text>

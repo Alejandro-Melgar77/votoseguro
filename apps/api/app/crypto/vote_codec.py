@@ -87,9 +87,7 @@ class HomomorphicPaillierVoteCodec:
         """
         pk = self._coerce_public_key(public_key) if public_key is not None else self.public_key
         if pk is None:
-            # Clave pública determinista efímera para entornos de test o inicialización temprana
-            pub, _ = paillier.generate_paillier_keypair(n_length=512)
-            pk = pub
+            raise ValueError("Se requiere la clave pública de una ceremonia electoral.")
 
         # Determinar el conjunto de opciones si no fue provisto
         if option_keys is None:
@@ -108,6 +106,9 @@ class HomomorphicPaillierVoteCodec:
         else:
             target_key = str(candidate_id) if candidate_id else choice_type
 
+        if target_key not in option_keys or len(set(option_keys)) != len(option_keys):
+            raise ValueError("La selección no pertenece a las opciones de la papeleta.")
+
         # Construir vector one-hot: 1 en la opción elegida, 0 en las demás
         one_hot_vector: list[int] = []
         for opt in option_keys:
@@ -122,8 +123,6 @@ class HomomorphicPaillierVoteCodec:
             "n": str(pk.n),
             "option_keys": option_keys,
             "ciphertexts": ciphertexts_hex,
-            "choice_type": choice_type,
-            "candidate_id": str(candidate_id) if candidate_id else None,
         }
         return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 

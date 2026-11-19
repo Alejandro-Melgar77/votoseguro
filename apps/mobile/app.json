@@ -15,7 +15,35 @@
       "bundleIdentifier": "org.votoseguro.mobile"
     },
     "android": {
-      "package": "org.votoseguro.mobile"
-    }
+      "package": "org.votoseguro.mobile",
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Permitir fotografiar la cédula para leerla en este dispositivo.",
+          "photosPermission": "Permitir seleccionar la fotografía de la cédula.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Permitir comandos de voz locales en la cabina.",
+          "speechRecognitionPermission": "Permitir reconocer comandos electorales sin conexión."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.5"
+          }
+        }
+      ]
+    ]
   }
 }

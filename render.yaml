@@ -6,7 +6,7 @@ services:
     plan: free
     rootDir: apps/api
     autoDeploy: true
-    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt"
+    buildCommand: "pip install -r requirements.lock.txt"
     startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: PYTHON_VERSION
@@ -15,6 +15,10 @@ services:
         value: production
       - key: DEBUG
         value: "false"
+      - key: DEMO_CREDENTIAL_INSPECTOR_ENABLED
+        value: "false"
+      - key: DATABASE_SSL_REQUIRED
+        value: "true"
       - key: RUN_EMBEDDED_SCHEDULER
         value: "true"
       - key: SECRET_KEY
@@ -22,15 +26,15 @@ services:
       - key: NULLIFIER_SECRET
         generateValue: true
       - key: DATABASE_URL
-        value: "postgresql+asyncpg://postgres.wmbyygrelcrcazxqedwr:proyectofinalvotoseguro@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
+        sync: false
       - key: SYNC_DATABASE_URL
-        value: "postgresql+psycopg://postgres.wmbyygrelcrcazxqedwr:proyectofinalvotoseguro@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
+        sync: false
       - key: CORS_ORIGINS
         value: "https://votoseguro.pages.dev,http://localhost:5173"
       - key: PLATFORM_ADMIN_EMAIL
         value: "admin@votoseguro.org"
       - key: PLATFORM_ADMIN_PASSWORD
-        value: "AdminPlatform2026!"
+        generateValue: true
       - key: AI_LOCAL_ENABLED
         value: "true"
       - key: NGROK_STATIC_DOMAIN

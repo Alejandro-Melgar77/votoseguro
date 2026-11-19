@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "prepare:ocr": "node scripts/prepare-ocr.mjs",
+    "predev": "node scripts/prepare-ocr.mjs",
+    "prebuild": "node scripts/prepare-ocr.mjs",
+    "test": "playwright test"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.59.16",
@@ -19,9 +23,12 @@
     "react-hook-form": "^7.53.0",
     "react-router-dom": "^6.27.0",
     "tailwind-merge": "^2.5.4",
+    "tesseract.js": "6.0.1",
+    "tesseract.js-core": "6.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",

@@ -1,0 +1,22 @@
+diff --git a/android/src/main/java/expo/modules/speech/SpeechModule.kt b/android/src/main/java/expo/modules/speech/SpeechModule.kt
+index 8061c68429bf23185574230bbb1ef543567ededa..534155d6641553a7091a8137d03246a5cc1bbbf7 100644
+--- a/android/src/main/java/expo/modules/speech/SpeechModule.kt
++++ b/android/src/main/java/expo/modules/speech/SpeechModule.kt
+@@ -47,7 +47,7 @@ class SpeechModule : Module() {
+         emptyList()
+       }
+ 
+-      return@AsyncFunction nativeVoices.map {
++      return@AsyncFunction nativeVoices.filter { !it.isNetworkConnectionRequired }.map {
+         val quality = if (it.quality > Voice.QUALITY_NORMAL) {
+           VoiceQuality.ENHANCED
+         } else {
+@@ -104,7 +104,7 @@ class SpeechModule : Module() {
+ 
+     options.voice?.let { voiceName ->
+       textToSpeech.voices
+-        .firstOrNull { it.name == voiceName }
++        .firstOrNull { it.name == voiceName && !it.isNetworkConnectionRequired }
+         ?.let(textToSpeech::setVoice)
+     }
+ 

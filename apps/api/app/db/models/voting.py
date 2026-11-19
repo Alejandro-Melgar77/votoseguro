@@ -110,8 +110,9 @@ class Vote(Base):
     __tablename__ = "vote"
     __table_args__ = (
         CheckConstraint(
-            "(choice_type = 'CANDIDATE' AND candidate_id IS NOT NULL) OR "
-            "(choice_type IN ('BLANK', 'NULL') AND candidate_id IS NULL)",
+            "(choice_type IS NULL AND candidate_id IS NULL) OR "
+            "(choice_type IS NOT NULL AND ((choice_type = 'CANDIDATE' AND candidate_id IS NOT NULL) OR "
+            "(choice_type IN ('BLANK', 'NULL') AND candidate_id IS NULL)))",
             name="ck_vote_candidate_consistency",
         ),
         Index("ix_vote_election_constituency", "election_id", "constituency_id"),
@@ -137,8 +138,8 @@ class Vote(Base):
         nullable=False,
         index=True,
     )
-    choice_type: Mapped[VoteChoiceType] = mapped_column(
-        Enum(VoteChoiceType, name="vote_choice_type_enum"), nullable=False
+    choice_type: Mapped[VoteChoiceType | None] = mapped_column(
+        Enum(VoteChoiceType, name="vote_choice_type_enum"), nullable=True
     )
     candidate_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),

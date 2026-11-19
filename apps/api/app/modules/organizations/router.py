@@ -74,6 +74,10 @@ async def trigger_seed_demo(
     db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Puebla de forma idempotente las instituciones de demostración (seed:demo)."""
+    from app.core.config import settings
+    from app.core.exceptions import ForbiddenException
+    if settings.ENVIRONMENT == "production":
+        raise ForbiddenException("Los datos de demostración están deshabilitados en producción.")
     from app.db.seed_demo import run_seed_demo
     res = await run_seed_demo(session=db)
     return {

@@ -158,7 +158,7 @@ class HomomorphicTallyEngine:
                                 # Extraer valores presentes en filters_snapshot
                                 observed_values = set()
                                 for v in const_votes:
-                                    if v.filters_snapshot and f_def.name in v.filters_snapshot:
+                                    if v.filters_snapshot and f_def.key in v.filters_snapshot:
                                         observed_values.add(v.filters_snapshot[f_def.name])
 
                                 for val in sorted(observed_values):
@@ -188,6 +188,8 @@ class HomomorphicTallyEngine:
                             try:
                                 payload = json.loads(vote.encoded_payload)
                                 if payload.get("scheme") == "PAILLIER_V1" and "ciphertexts" in payload:
+                                    if int(payload["n"]) != n:
+                                        raise ValueError("Clave pública de voto incorrecta")
                                     p_keys = payload.get("option_keys", [])
                                     p_ciphers = payload.get("ciphertexts", [])
                                     if p_keys == option_order_keys:
@@ -208,6 +210,9 @@ class HomomorphicTallyEngine:
                                         ]
                             except Exception:
                                 pass
+
+                            if vote.choice_type is None and (not vote_cipher_ints or len(vote_cipher_ints) != vec_len):
+                                raise ValueError("Voto cifrado inválido; no es posible reconstruirlo desde texto plano.")
 
                             # Si el voto fue emitido en modo previo o plano, se cifra on-the-fly con pk
                             if not vote_cipher_ints or len(vote_cipher_ints) != vec_len:

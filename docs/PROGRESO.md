@@ -1,4 +1,6 @@
-# Registro de Progreso — Sprints 1, 2, 2.5 y 3 (Release Final Certificado v3.0.0)
+# Registro histórico de progreso de los sprints
+
+> Actualización de preparación para AWS: 58 pruebas backend y 2 pruebas de navegador aprobadas; OCR real, voz nativa, privacidad de votos y fragmentos corregidas. Web compilada, bundle Android generado y ocho migraciones verificadas en PostgreSQL 16. La configuración AWS valida, pero no se ha publicado en una cuenta. Las declaraciones de certificación siguientes pertenecen al registro anterior y no acreditan carga, revisión lingüística ni pruebas en teléfonos. Véanse [despliegue AWS](DESPLIEGUE_AWS.md) y [OCR y voz](OCR_Y_VOZ.md).
 
 ## Estado General del Proyecto
 - **Periodo:** Noviembre de 2026

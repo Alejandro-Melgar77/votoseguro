@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Camera,
   Shield,
@@ -39,12 +39,18 @@ export const BiometricSelfieVerificationModal: React.FC<BiometricSelfieVerificat
   const [error, setError] = useState<string | null>(null);
   const [verdictData, setVerdictData] = useState<any | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) { setSelfieB64(''); setIdCardB64(''); setConsentGiven(false); setVerdictData(null); setStep('consent'); }
+  }, [isOpen]);
   if (!isOpen) return null;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'selfie' | 'id') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Use una imagen JPG, PNG o WebP.'); return;
+    }
     if (file.size > 3 * 1024 * 1024) {
       setError('La imagen no debe superar los 3 MB.');
       return;
@@ -60,40 +66,6 @@ export const BiometricSelfieVerificationModal: React.FC<BiometricSelfieVerificat
     reader.readAsDataURL(file);
   };
 
-  const handleGenerateSyntheticSample = () => {
-    // Generar muestras sintéticas en canvas en memoria para demo veloz
-    const canvas = document.createElement('canvas');
-    canvas.width = 240;
-    canvas.height = 240;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      // Selfie sintética
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(0, 0, 240, 240);
-      ctx.fillStyle = '#10b981';
-      ctx.beginPath();
-      ctx.arc(120, 100, 50, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#38bdf8';
-      ctx.fillRect(70, 160, 100, 70);
-      const synthSelfie = canvas.toDataURL('image/jpeg', 0.8);
-      setSelfieB64(synthSelfie);
-
-      // Cédula sintética
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(0, 0, 240, 240);
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(20, 20, 200, 30);
-      ctx.fillStyle = '#10b981';
-      ctx.beginPath();
-      ctx.arc(70, 110, 35, 0, Math.PI * 2);
-      ctx.fill();
-      const synthId = canvas.toDataURL('image/jpeg', 0.8);
-      setIdCardB64(synthId);
-      setError(null);
-    }
-  };
-
   const handleSubmitVerification = async () => {
     if (!selfieB64 || !idCardB64) {
       setError('Por favor proporcione tanto la selfie como la fotografía de su documento de identidad.');
@@ -106,7 +78,7 @@ export const BiometricSelfieVerificationModal: React.FC<BiometricSelfieVerificat
       const data = await api.post<any>('/ai/biometric/verify', {
         election_id: electionId,
         document_id: documentId,
-        consent_accepted: true,
+        consent_accepted: consentGiven,
         selfie_base64: selfieB64,
         id_card_base64: idCardB64,
         use_fallback_code: false,
@@ -124,6 +96,7 @@ export const BiometricSelfieVerificationModal: React.FC<BiometricSelfieVerificat
           'Error al procesar la verificación facial asistida con Gemini.'
       );
     } finally {
+      setSelfieB64(''); setIdCardB64('');
       setLoading(false);
     }
   };
@@ -157,7 +130,7 @@ export const BiometricSelfieVerificationModal: React.FC<BiometricSelfieVerificat
               </div>
               <p className="leading-relaxed text-stone-700">
                 Esta verificación es <strong>totalmente opcional</strong>. Las imágenes de su rostro y documento se
-                analizan exclusivamente en la memoria volátil de inferencia para cotejar rasgos y{' '}
+                envían a Gemini para cotejar los rasgos. Nuestra aplicación procesa las imágenes temporalmente y{' '}
                 <strong>jamás se guardan en el servidor, base de datos ni almacenamiento permanente</strong>.
               </p>
               <p className="text-stone-600">
@@ -236,7 +209,8 @@ export const BiometricSelfieVerificationModal: React.FC<BiometricSelfieVerificat
                     <span className="text-[11px] text-stone-600 font-medium">Subir foto selfie</span>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp"
+                      capture="user"
                       onChange={(e) => handleFileUpload(e, 'selfie')}
                       className="hidden"
                     />
@@ -267,7 +241,8 @@ export const BiometricSelfieVerificationModal: React.FC<BiometricSelfieVerificat
                     <span className="text-[11px] text-stone-600 font-medium">Subir foto cédula</span>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp"
+                      capture="environment"
                       onChange={(e) => handleFileUpload(e, 'id')}
                       className="hidden"
                     />
@@ -277,13 +252,7 @@ export const BiometricSelfieVerificationModal: React.FC<BiometricSelfieVerificat
             </div>
 
             <div className="flex items-center justify-between pt-1">
-              <button
-                type="button"
-                onClick={handleGenerateSyntheticSample}
-                className="text-[11px] text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1"
-              >
-                <span>⚡</span> Usar muestra sintética (Demo veloz)
-              </button>
+
               <span className="text-[10px] text-stone-400 flex items-center gap-1">
                 <EyeOff className="w-3 h-3" /> Cero almacenamiento
               </span>

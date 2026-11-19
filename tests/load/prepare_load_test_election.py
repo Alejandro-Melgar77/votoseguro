@@ -63,6 +63,8 @@ async def prepare_load_test_election(
     print(f"Meta de electores activos: {num_voters} votantes concurrentes")
     print("=" * 80)
 
+    if settings.ENVIRONMENT == "production":
+        raise RuntimeError("Use una base de pruebas aislada, nunca la base electoral de producción.")
     engine = create_async_engine(settings.DATABASE_URL, echo=False, future=True)
     session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -124,9 +126,9 @@ async def prepare_load_test_election(
         now = datetime.now(timezone.utc)
 
         if not election:
-            # 4. Generar par de claves Paillier de 1024 bits para la elección
-            print("[*] Generando par de claves Paillier de 1024 bits...")
-            pub_key, priv_key = paillier.generate_paillier_keypair(n_length=1024)
+            # 4. Generar par de claves Paillier de 2048 bits para la elección
+            print("[*] Generando par de claves Paillier de 2048 bits...")
+            pub_key, priv_key = paillier.generate_paillier_keypair(n_length=2048)
             n_str = str(pub_key.n)
 
             # Dividir secreto Shamir con k=2, n=3
@@ -151,7 +153,7 @@ async def prepare_load_test_election(
                 encryption_scheme="PAILLIER_HOMOMORPHIC",
                 paillier_public_n=n_str,
                 paillier_public_key=n_str,
-                paillier_key_size=1024,
+                paillier_key_size=2048,
                 shamir_threshold_k=threshold_k,
                 shamir_total_n=total_n,
                 shamir_prime_modulus=str(DEFAULT_SHAMIR_PRIME),
@@ -175,7 +177,7 @@ async def prepare_load_test_election(
                     trustee_name=f"Vocal Electoral Custodio {share[0]} (Load Test)",
                     trustee_email=f"trustee{share[0]}.load@votoseguro.org",
                     commitment_hash=c_hash,
-                    demo_share_token=share_fmt,
+                    demo_share_token=None,
                 )
                 session.add(trustee)
             await session.flush()

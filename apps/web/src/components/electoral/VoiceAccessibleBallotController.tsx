@@ -52,10 +52,11 @@ export const VoiceAccessibleBallotController: React.FC<VoiceAccessibleBallotCont
   // Comprobar soporte de SpeechRecognition en el navegador
   useEffect(() => {
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRec) {
+    if (SpeechRec && 'processLocally' in SpeechRec.prototype) {
       setHasSpeechRecognition(true);
       const rec = new SpeechRec();
       rec.lang = 'es-ES';
+      rec.processLocally = true;
       rec.continuous = false;
       rec.interimResults = false;
 
@@ -79,6 +80,7 @@ export const VoiceAccessibleBallotController: React.FC<VoiceAccessibleBallotCont
       };
 
       recognitionRef.current = rec;
+      return () => { rec.onresult = null; rec.abort(); window.speechSynthesis?.cancel(); };
     }
   }, [candidates, contestIndex, totalContests]);
 
@@ -88,6 +90,9 @@ export const VoiceAccessibleBallotController: React.FC<VoiceAccessibleBallotCont
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'es-ES';
     utterance.rate = 0.95;
+    const voice = window.speechSynthesis.getVoices().find(v => v.localService && v.lang.startsWith('es'));
+    if (!voice) { setFeedback(text + ' (Instale una voz española local para escuchar la lectura.)'); return; }
+    utterance.voice = voice;
     window.speechSynthesis.speak(utterance);
   };
 
@@ -175,7 +180,7 @@ export const VoiceAccessibleBallotController: React.FC<VoiceAccessibleBallotCont
     }
   };
 
-  const toggleListening = () => {
+  const toggleListening = async () => {
     if (!hasSpeechRecognition) {
       setFeedback('Reconocimiento por voz no disponible en este navegador. Utilice la botonera asistida.');
       return;
@@ -186,9 +191,19 @@ export const VoiceAccessibleBallotController: React.FC<VoiceAccessibleBallotCont
       setIsListening(false);
     } else {
       try {
+        const Engine = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        const options = { langs: ['es-ES'], processLocally: true };
+        if (Engine.available) {
+          const available = await Engine.available(options);
+          if (available !== 'available') {
+            setFeedback('Preparando reconocimiento español sin conexión...');
+            if (!Engine.install || !(await Engine.install(options))) throw new Error('Instale el paquete español de reconocimiento local en su navegador.');
+          }
+        }
+        window.speechSynthesis?.cancel();
         recognitionRef.current?.start();
       } catch (err) {
-        console.warn('Error arrancando SpeechRecognition:', err);
+        setFeedback(err instanceof Error ? err.message : 'No se pudo iniciar el reconocimiento local.');
       }
     }
   };

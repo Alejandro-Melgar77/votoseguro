@@ -36,10 +36,10 @@ interface TrusteeStatus {
 
 interface CeremonyStatusData {
   election_id: string;
-  status: string;
-  key_ceremony_status: string;
-  shamir_threshold_k: number;
-  shamir_total_n: number;
+  election_status: string;
+  key_ceremony_completed: boolean;
+  threshold_k: number;
+  total_n: number;
   key_ceremony_hash: string | null;
   tally_ceremony_hash: string | null;
   paillier_public_n: string | null;
@@ -67,14 +67,8 @@ export const CryptoCeremonyPage: React.FC = () => {
   // Parámetros de Setup
   const [thresholdK, setThresholdK] = useState(3);
   const [totalN, setTotalN] = useState(5);
-  const [keySizeBits, setKeySizeBits] = useState(1024);
-  const [trustees, setTrustees] = useState<TrusteeInput[]>([
-    { index: 1, name: 'Vocal Titular 1 — Presidencia Corte', email: 'vocal1@corte-electoral.org' },
-    { index: 2, name: 'Vocal Titular 2 — Vicepresidencia', email: 'vocal2@corte-electoral.org' },
-    { index: 3, name: 'Vocal Titular 3 — Secretaría de Cámara', email: 'vocal3@corte-electoral.org' },
-    { index: 4, name: 'Delegado Técnico Informático', email: 'tecnico@corte-electoral.org' },
-    { index: 5, name: 'Observador Electoral Ciudadano', email: 'observador@veeduria.org' },
-  ]);
+  const [keySizeBits, setKeySizeBits] = useState(2048);
+  const [trustees, setTrustees] = useState<TrusteeInput[]>(Array.from({length: 5}, (_, i) => ({index: i+1, name: '', email: ''})));
   const [setupLoading, setSetupLoading] = useState(false);
   const [generatedShares, setGeneratedShares] = useState<GeneratedShareItem[]>([]);
   const [copiedShareIndex, setCopiedShareIndex] = useState<number | null>(null);
@@ -91,11 +85,11 @@ export const CryptoCeremonyPage: React.FC = () => {
     try {
       const data = await api.get<CeremonyStatusData>(`/elections/${electionId}/shamir/status`);
       setCeremonyStatus(data);
-      if (data.shamir_threshold_k) {
-        setThresholdK(data.shamir_threshold_k);
-        setTotalN(data.shamir_total_n);
+      if (data.threshold_k) {
+        setThresholdK(data.threshold_k);
+        setTotalN(data.total_n);
         // Inicializar slots de unlock según K
-        setUnlockSharesText(Array(data.shamir_threshold_k).fill(''));
+        setUnlockSharesText(Array(data.threshold_k).fill(''));
       }
     } catch (err: any) {
       setError(err?.response?.data?.detail || 'Error al cargar estado de la ceremonia criptográfica');
@@ -116,6 +110,9 @@ export const CryptoCeremonyPage: React.FC = () => {
 
   const handleSetupCeremony = async () => {
     if (!electionId) return;
+    if (trustees.slice(0, totalN).some(t => !t.name.trim() || !t.email.trim())) {
+      setError('Indique el nombre y correo real de cada custodio.'); return;
+    }
     setSetupLoading(true);
     setError(null);
     setSuccessMsg(null);
@@ -123,7 +120,7 @@ export const CryptoCeremonyPage: React.FC = () => {
       const payload = {
         threshold_k: Number(thresholdK),
         total_n: Number(totalN),
-        key_size_bits: Number(keySizeBits),
+        key_size: Number(keySizeBits),
         trustees: trustees.slice(0, totalN).map((t, i) => ({
           trustee_index: i + 1,
           trustee_name: t.name,
@@ -132,7 +129,7 @@ export const CryptoCeremonyPage: React.FC = () => {
       };
 
       const data = await api.post<any>(`/elections/${electionId}/shamir/setup`, payload);
-      setGeneratedShares(data.trustees_shares || []);
+      setGeneratedShares(data.trustees.map((t: any) => ({ trustee_index: t.share_index, trustee_name: t.trustee_name, trustee_email: t.trustee_email, share_formatted: t.share_token, commitment_hash: t.commitment_hash })));
       setSuccessMsg(
         `¡Ceremonia de claves completada! Se generaron ${totalN} fragmentos Shamir con quórum k=${thresholdK}. La clave privada fue destruida de la memoria RAM.`
       );
@@ -148,16 +145,6 @@ export const CryptoCeremonyPage: React.FC = () => {
     navigator.clipboard.writeText(text);
     setCopiedShareIndex(index);
     setTimeout(() => setCopiedShareIndex(null), 2500);
-  };
-
-  const handleAutofillDemoShares = () => {
-    if (!generatedShares || generatedShares.length === 0) {
-      alert('Primero genere o disponga de los fragmentos generados en esta sesión.');
-      return;
-    }
-    const needed = thresholdK;
-    const filled = generatedShares.slice(0, needed).map((s) => s.share_formatted);
-    setUnlockSharesText(filled);
   };
 
   const handleUnlockTally = async () => {
@@ -177,6 +164,8 @@ export const CryptoCeremonyPage: React.FC = () => {
       };
       const data = await api.post<any>(`/elections/${electionId}/shamir/unlock`, payload);
       setUnlockedResult(data);
+      setUnlockSharesText(Array(thresholdK).fill(''));
+      setGeneratedShares([]);
       setSuccessMsg(
         `¡Apertura y escrutinio homomórfico exitoso! Se reconstruyó la clave con quórum y se descifraron los acumuladores oficiales (TALLIED).`
       );
@@ -188,8 +177,8 @@ export const CryptoCeremonyPage: React.FC = () => {
     }
   };
 
-  const isSetupDone = ceremonyStatus?.key_ceremony_status === 'COMPLETED' || ceremonyStatus?.key_ceremony_hash !== null;
-  const isTallied = ceremonyStatus?.status === 'TALLIED' || ceremonyStatus?.tally_ceremony_hash !== null;
+  const isSetupDone = Boolean(ceremonyStatus?.key_ceremony_completed);
+  const isTallied = ceremonyStatus?.election_status === 'TALLIED' || Boolean(ceremonyStatus?.tally_ceremony_hash);
 
   return (
     <InstitutionalShell>
@@ -264,14 +253,14 @@ export const CryptoCeremonyPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <span
                 className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${
-                  ceremonyStatus?.status === 'TALLIED'
+                  ceremonyStatus?.election_status === 'TALLIED'
                     ? 'bg-emerald-100 text-emerald-800'
-                    : ceremonyStatus?.status === 'VOTING_CLOSED'
+                    : ceremonyStatus?.election_status === 'VOTING_CLOSED'
                     ? 'bg-amber-100 text-amber-800'
                     : 'bg-blue-100 text-blue-800'
                 }`}
               >
-                {ceremonyStatus?.status || 'CARGANDO'}
+                {ceremonyStatus?.election_status || 'CARGANDO'}
               </span>
             </div>
           </div>
@@ -300,7 +289,7 @@ export const CryptoCeremonyPage: React.FC = () => {
               Quórum Shamir ($k$ de $n$)
             </span>
             <p className="text-sm font-mono font-bold text-stone-900">
-              {ceremonyStatus?.shamir_threshold_k || thresholdK} de {ceremonyStatus?.shamir_total_n || totalN} custodios
+              {ceremonyStatus?.threshold_k || thresholdK} de {ceremonyStatus?.total_n || totalN} custodios
             </p>
           </div>
 
@@ -397,8 +386,8 @@ export const CryptoCeremonyPage: React.FC = () => {
                         for (let i = trustees.length; i < n; i++) {
                           next.push({
                             index: i + 1,
-                            name: `Custodio Electoral ${i + 1}`,
-                            email: `custodio${i + 1}@corte-electoral.org`,
+                            name: '',
+                            email: '',
                           });
                         }
                         setTrustees(next);
@@ -418,8 +407,8 @@ export const CryptoCeremonyPage: React.FC = () => {
                     onChange={(e) => setKeySizeBits(Number(e.target.value))}
                     className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm font-mono bg-white focus:ring-2 focus:ring-civic-navy-900 focus:outline-none"
                   >
-                    <option value={1024}>1024 bits (Rápido / Recomendado)</option>
-                    <option value={2048}>2048 bits (Alta Seguridad Militar)</option>
+                    
+                    <option value={2048}>2048 bits</option>
                   </select>
                   <span className="text-[10px] text-stone-400">Módulo $n = p \cdot q$ en urna</span>
                 </div>
@@ -477,7 +466,7 @@ export const CryptoCeremonyPage: React.FC = () => {
               <div className="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-lg text-xs text-emerald-950 flex items-center justify-between">
                 <span>
                   La ceremonia de generación de claves fue efectuada con éxito. La clave privada Paillier fue dividida en{' '}
-                  <strong>{ceremonyStatus?.shamir_total_n} fragmentos</strong> y purgada de la memoria RAM del servidor.
+                  <strong>{ceremonyStatus?.total_n} fragmentos</strong> y purgada de la memoria RAM del servidor.
                 </span>
               </div>
 
@@ -517,6 +506,7 @@ export const CryptoCeremonyPage: React.FC = () => {
           {/* Tabla de Fragmentos Recién Generados para Descarga/Copia */}
           {generatedShares.length > 0 && (
             <div className="mt-6 p-4 bg-amber-50/70 border border-amber-200 rounded-xl space-y-3">
+              <button type="button" onClick={() => setGeneratedShares([])}>Ocultar fragmentos entregados</button>
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-amber-900 flex items-center gap-1.5 uppercase tracking-wide">
                   <Key className="w-4 h-4 text-amber-700" />
@@ -587,15 +577,7 @@ export const CryptoCeremonyPage: React.FC = () => {
               <p className="text-xs font-medium text-stone-700">
                 Ingrese al menos <strong>{thresholdK} fragmentos válidos</strong> de custodios:
               </p>
-              {generatedShares.length >= thresholdK && (
-                <button
-                  type="button"
-                  onClick={handleAutofillDemoShares}
-                  className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1 transition-colors"
-                >
-                  <span>⚡</span> Auto-rellenar fragmentos de demo
-                </button>
-              )}
+
             </div>
 
             <div className="space-y-3">

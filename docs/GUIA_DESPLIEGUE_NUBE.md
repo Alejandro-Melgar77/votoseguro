@@ -1,3 +1,5 @@
+> La preparación vigente para AWS está en [DESPLIEGUE_AWS.md](DESPLIEGUE_AWS.md). Esta guía conserva las alternativas previas de hosting.
+
 # Guía de Despliegue en la Nube y Operación en Producción — VotoSeguro v3.0.0
 **Arquitectura de Alta Disponibilidad, Criptografía Homomórfica e IA Híbrida**  
 *Asignatura:* Ingeniería de Software I (INF 422 SB) — UAGRM  

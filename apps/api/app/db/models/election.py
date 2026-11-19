@@ -167,6 +167,7 @@ class ElectoralTrusteeShare(Base):
     __tablename__ = "electoral_trustee_share"
     __table_args__ = (
         UniqueConstraint("election_id", "share_index", name="uq_trustee_share_election_index"),
+        CheckConstraint("demo_share_token IS NULL", name="ck_trustee_no_persisted_secret"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
