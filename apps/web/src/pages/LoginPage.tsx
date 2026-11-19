@@ -51,7 +51,7 @@ export const LoginPage: React.FC = () => {
           <div className="w-12 h-12 rounded-xl bg-seal-emerald/20 border border-seal-emerald/40 flex items-center justify-center text-seal-emerald font-bold mx-auto mb-3">
             <Shield className="w-6 h-6" />
           </div>
-          <h2 className="font-title text-2xl font-bold tracking-wide">VotoSeguro</h2>
+          <h2 className="font-title text-2xl font-bold tracking-wide text-white">VotoSeguro</h2>
           <p className="text-xs text-stone-300 font-mono mt-1">
             Portal Institucional de Autoridad Electoral
           </p>
