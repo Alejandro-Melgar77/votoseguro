@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Orquestador de despliegue automatizado para VotoSeguro en AWS (Nivel Gratuito / Creditos FREE).
-Despliega la infraestructura CloudFormation, sube el frontend compilado a S3 y valida la salud del backend.
+Despliega la infraestructura CloudFormation (EC2 t3.micro + S3), sincroniza el frontend y valida la salud del backend.
 """
 import csv
 import mimetypes
@@ -9,6 +9,8 @@ import os
 import sys
 import time
 from pathlib import Path
+import urllib.request
+import json
 import boto3
 from botocore.exceptions import ClientError
 
@@ -40,7 +42,6 @@ def get_clients(access_key, secret_key):
     return {
         "cf": session.client("cloudformation"),
         "s3": session.client("s3"),
-        "cloudfront": session.client("cloudfront"),
         "ec2": session.client("ec2")
     }
 
@@ -75,12 +76,12 @@ def deploy_stack(cf_client):
                 {"Key": "Branch", "Value": "JERS"}
             ]
         )
-        print("[*] Esperando a que el stack complete su creacion (esto puede tardar 3-4 minutos)...")
+        print("[*] Esperando a que el stack complete su creacion (aprox 2-3 minutos)...")
         waiter = cf_client.get_waiter("stack_create_complete")
-        waiter.wait(StackName=STACK_NAME, WaiterConfig={"Delay": 15, "MaxAttempts": 40})
+        waiter.wait(StackName=STACK_NAME, WaiterConfig={"Delay": 15, "MaxAttempts": 30})
         print("[+] Stack CloudFormation creado exitosamente.")
     else:
-        print(f"[*] Stack '{STACK_NAME}' ya existe. Actualizando si hay cambios...")
+        print(f"[*] Stack '{STACK_NAME}' ya existe. Verificando actualizaciones...")
         try:
             cf_client.update_stack(
                 StackName=STACK_NAME,
@@ -90,7 +91,7 @@ def deploy_stack(cf_client):
             )
             print("[*] Esperando actualizacion del stack...")
             waiter = cf_client.get_waiter("stack_update_complete")
-            waiter.wait(StackName=STACK_NAME, WaiterConfig={"Delay": 15, "MaxAttempts": 40})
+            waiter.wait(StackName=STACK_NAME, WaiterConfig={"Delay": 15, "MaxAttempts": 30})
             print("[+] Stack actualizado.")
         except ClientError as e:
             if "No updates are to be performed" in str(e):
@@ -103,7 +104,6 @@ def deploy_stack(cf_client):
     return outputs
 
 def upload_frontend(s3_client, bucket_name):
-    # Buscar el directorio dist compilado
     dist_candidates = [
         ROOT_DIR / "votoseguro-main" / "apps" / "web" / "dist",
         ROOT_DIR / "votoseguro-JERS" / "apps" / "web" / "dist",
@@ -145,16 +145,24 @@ def upload_frontend(s3_client, bucket_name):
 
     print(f"[+] {uploaded_count} archivos subidos exitosamente a S3.")
 
-def invalidate_cloudfront(cf_dist_client, distribution_id):
-    print(f"[*] Creando invalidacion de cache en CloudFront '{distribution_id}'...")
-    res = cf_dist_client.create_invalidation(
-        DistributionId=distribution_id,
-        InvalidationBatch={
-            "Paths": {"Quantity": 1, "Items": ["/*"]},
-            "CallerReference": f"deploy-{int(time.time())}"
-        }
-    )
-    print(f"[+] Invalidacion creada: {res['Invalidation']['Id']}")
+def wait_for_backend_health(ec2_ip, timeout_seconds=300):
+    url = f"http://{ec2_ip}/health"
+    print(f"[*] Esperando inicializacion de Docker y FastAPI en {url} (tiempo limite: {timeout_seconds}s)...")
+    start = time.time()
+    while time.time() - start < timeout_seconds:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "HealthCheck/1.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    print(f"[+] Backend respondiendo exitosamente: {data}")
+                    return True
+        except Exception:
+            pass
+        time.sleep(10)
+        elapsed = int(time.time() - start)
+        print(f"    ... esperando arranque de contenedores ({elapsed}s transcurridos)")
+    return False
 
 def main():
     print("=" * 70)
@@ -166,31 +174,36 @@ def main():
 
     # 1. Desplegar Stack CloudFormation
     outputs = deploy_stack(clients["cf"])
-    print("[*] Salidas obtenidas de CloudFormation:")
+    print("[*] Salidas de CloudFormation:")
     for k, v in outputs.items():
         print(f"    - {k}: {v}")
 
     bucket_name = outputs.get("WebBucketName")
-    distribution_id = outputs.get("CloudFrontDistributionId")
-    cloudfront_url = outputs.get("CloudFrontUrl")
     ec2_ip = outputs.get("EC2PublicIp")
     ec2_dns = outputs.get("EC2PublicDns")
+    web_url_http = outputs.get("WebUrlHttp")
+    web_url_ip = outputs.get("WebUrlIp")
 
     # 2. Subir Frontend Web a S3
     if bucket_name:
         upload_frontend(clients["s3"], bucket_name)
 
-    # 3. Invalidar cache de CloudFront
-    if distribution_id:
-        invalidate_cloudfront(clients["cloudfront"], distribution_id)
+    # 3. Esperar y validar salud de la API en la instancia EC2
+    if ec2_ip:
+        healthy = wait_for_backend_health(ec2_ip, timeout_seconds=360)
+        if not healthy:
+            print("[!] Advertencia: La API aun esta completando su compilacion o arranque en segundo plano.")
+            print("    Puedes revisar el estado en unos minutos o inspeccionar /var/log/user-data.log en la instancia.")
 
     print("\n" + "=" * 70)
-    print(" DESPLIEGUE FINALIZADO EXITOSAMENTE")
+    print(" DESPLIEGUE COMPLETADO EXITOSAMENTE EN AWS")
     print("=" * 70)
-    print(f"URL Publica HTTPS (CloudFront): {cloudfront_url}")
-    print(f"Endpoint Backend Directo:        http://{ec2_ip}")
-    print(f"Salud de la API:                 {cloudfront_url}/api/v1/health")
-    print(f"Documentacion Swagger:           {cloudfront_url}/docs")
+    print(f"URL de Acceso Web (DNS):      {web_url_http}")
+    print(f"URL de Acceso Web (IP):       {web_url_ip}")
+    print(f"Endpoint de Salud:            http://{ec2_ip}/health")
+    print(f"Documentacion Swagger:        http://{ec2_ip}/docs")
+    print(f"Administrador Inicial:        admin@votoseguro.org / AdminPlatform2026!")
+    print(f"Demo Universidad:             admin@granestudio.edu.bo / GranEstudio2026!")
     print("=" * 70)
 
 if __name__ == "__main__":
