@@ -38,42 +38,33 @@ if [ ! -f "$CERTS/ca.crt" ]; then
   chmod 644 "$CERTS/ca.crt" "$CERTS/server.crt"
 fi
 
-ORIGIN_SECRET=$(aws ssm get-parameter --region "$REGION" --name /votoseguro/JERS/origin-secret --with-decryption --query Parameter.Value --output text)
-cat > "$ROOT/private/nginx.conf" <<'NGINX'
-map $http_upgrade $connection_upgrade { default upgrade; '' close; }
-server {
-  listen 80;
-  server_name _;
-  root /usr/share/nginx/html;
-  client_max_body_size 9m;
-  if ($http_x_votoseguro_origin != "__ORIGIN_SECRET__") { return 403; }
-  add_header X-Content-Type-Options nosniff always;
-  add_header Referrer-Policy strict-origin-when-cross-origin always;
-  add_header Permissions-Policy 'camera=(self), microphone=(self), on-device-speech-recognition=(self)' always;
-  location /api/ {
-    proxy_pass http://api:8000;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-Proto https;
-    proxy_set_header X-Forwarded-For $http_x_origin_client_ip;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection $connection_upgrade;
-    proxy_read_timeout 120s;
-    add_header Cache-Control no-store always;
+PUBLIC_HOST=$(aws ssm get-parameter --region "$REGION" --name /votoseguro/JERS/public-host --query Parameter.Value --output text)
+cat > "$ROOT/private/Caddyfile" <<CADDY
+$PUBLIC_HOST {
+  encode zstd gzip
+  header X-Content-Type-Options nosniff
+  header Referrer-Policy strict-origin-when-cross-origin
+  header Permissions-Policy "camera=(self), microphone=(self), on-device-speech-recognition=(self)"
+  handle /api/* {
+    reverse_proxy api:8000
+    header Cache-Control no-store
   }
-  location / { try_files $uri $uri/ /index.html; }
+  handle {
+    root * /srv
+    try_files {path} /index.html
+    file_server
+  }
 }
-NGINX
-sed -i "s/__ORIGIN_SECRET__/$ORIGIN_SECRET/g" "$ROOT/private/nginx.conf"
-chmod 600 "$ROOT/private/nginx.conf"
+CADDY
+chmod 600 "$ROOT/private/Caddyfile"
 
 docker build -t "votoseguro-api:$SHA" apps/api
 COMPOSE=(docker compose --project-name votoseguro -f infra/aws-free/compose.yml)
-"${COMPOSE[@]}" up -d postgres
+"${COMPOSE[@]}" up -d --wait postgres
 "${COMPOSE[@]}" run --rm --no-deps api alembic upgrade head
 
 # Install only the packages needed to build the web application.
-pnpm install --frozen-lockfile --filter @votoseguro/web...
+CI=true pnpm install --frozen-lockfile --filter @votoseguro/web...
 VITE_API_BASE_URL=/api/v1 pnpm --filter @votoseguro/web build
 cp -a apps/web/dist/. "$ROOT/web/"
 "${COMPOSE[@]}" up -d --remove-orphans api scheduler web

@@ -37,7 +37,7 @@ async def extract_id_card_from_text(
         f"{cleaned_text}\n"
         f"-----------------\n\n"
         f"Responde con este esquema JSON:\n"
-        f"- ci: número de carnet/cédula normalizado (ej. \"CI-8001002\" o \"8001002\")\n"
+        f"- ci: número exacto que aparece en el documento, sin inventar prefijos ni números de ejemplo\n"
         f"- nombres: nombres de pila en mayúsculas/título\n"
         f"- apellidos: apellidos paterno y materno\n"
         f"- fecha_nacimiento: fecha en formato DD/MM/YYYY o YYYY-MM-DD (o null si no figura)\n"
@@ -61,6 +61,13 @@ async def extract_id_card_from_text(
         db=db,
         sanitized_summary="Extracción estructurada de campos de texto OCR de cédula (cero imágenes persistidas)",
     )
+
+    # A plausible number is not sufficient: it must actually occur in the OCR text.
+    digits = re.sub(r'[^0-9]', '', result.ci or '')
+    observed_numbers = re.findall(r'(?<!\d)\d{5,10}(?!\d)', cleaned_text)
+    if digits and digits not in observed_numbers:
+        result.ci = ''
+        result.confidence_note = 'No se pudo verificar el número en el texto. Revise la fotografía o introdúzcalo manualmente.'
 
     # Verificación final de integridad regex determinista
     fallback_res = fallback_extract_id_card(cleaned_text)

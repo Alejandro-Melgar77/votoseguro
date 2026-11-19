@@ -43,3 +43,27 @@ test('rejects invalid files without filling demo data', async ({ page }) => {
   await expect(page.getByText('Use una imagen JPG, PNG o WebP.')).toBeVisible();
   await expect(page.locator('textarea')).toHaveValue('');
 });
+
+test('reads a low contrast document using actual image preprocessing', async ({ page }) => {
+  await page.goto('/vote');
+  const image = await page.evaluate(async () => {
+    const canvas=document.createElement('canvas'); canvas.width=1600; canvas.height=900;
+    const ctx=canvas.getContext('2d')!;
+    ctx.fillStyle='#ddd';ctx.fillRect(0,0,1600,900);
+    ctx.fillStyle='#888';ctx.font='52px Arial';
+    ['CEDULA DE IDENTIDAD','NUMERO: 7654321','NOMBRES: MARIA','APELLIDOS: LOPEZ'].forEach((line,index)=>ctx.fillText(line,70,130+index*140));
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  await page.getByRole('button',{name:/Escanear OCR/}).click();
+  await page.getByLabel('Fotografía de la cédula').setInputFiles({name:'low-contrast.png',mimeType:'image/png',buffer:Buffer.from(image,'base64')});
+  await expect(page.locator('textarea')).toHaveValue(/7654321/, {timeout:90_000});
+});
+
+test('reports a missing OCR runtime rather than spinning forever', async ({page}) => {
+  await page.route('**/ocr/worker.min.js', route => route.fulfill({status:404,body:'missing'}));
+  await page.goto('/vote');
+  await page.getByRole('button',{name:/Escanear OCR/}).click();
+  await page.getByLabel('Fotografía de la cédula').setInputFiles(fileURLToPath(new URL('./fixtures/id-card-test.png',import.meta.url)));
+  await expect(page.getByText(/El escáner no pudo cargar sus archivos/)).toBeVisible();
+  await expect(page.getByLabel('Fotografía de la cédula')).toBeEnabled();
+});

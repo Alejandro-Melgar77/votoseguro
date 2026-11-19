@@ -242,7 +242,9 @@ async def get_ai_node_status(
     except Exception as err:
         logger.debug(f"Error actualizando last_ping_status: {err}")
 
-    if is_online:
+    if provider == 'ANTHROPIC':
+        label = 'Claude conectado' if is_online else 'Claude no disponible; asistencia determinista activa'
+    elif is_online:
         label = "🟢 NODO NEURONAL LOCAL CONECTADO (TÚNEL ESTÁTICO NGROK ACTIVO)"
     else:
         label = "🟠 NODO PC APAGADO (OPERANDO EN MODO DEGRADADO — EJECUTE INICIAR_IA_LOCAL.BAT)"
