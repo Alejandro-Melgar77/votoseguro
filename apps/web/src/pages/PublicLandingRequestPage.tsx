@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Send, CheckCircle2, AlertCircle, Building, Calendar, Mail, User, Phone, FileText, Layers, ExternalLink } from 'lucide-react';
+import { Shield, Send, CheckCircle2, AlertCircle, Building, Calendar, Mail, User, Phone, FileText, Layers, ExternalLink, Vote, ArrowRight, KeyRound } from 'lucide-react';
 import { api } from '@/lib/api';
 import { LanguageSwitcher } from '@/components/electoral/LanguageSwitcher';
 import type { ElectionRequestCreate, OrganizationType } from '@votoseguro/api-client';
@@ -47,7 +47,7 @@ export const PublicLandingRequestPage: React.FC = () => {
             VS
           </div>
           <div>
-            <h1 className="font-title text-base font-bold tracking-wide">VotoSeguro</h1>
+            <h1 className="font-title text-base font-bold tracking-wide text-white">VotoSeguro</h1>
             <p className="text-[10px] text-stone-400 font-mono">Infraestructura Electoral SaaS</p>
           </div>
         </div>
@@ -61,6 +61,14 @@ export const PublicLandingRequestPage: React.FC = () => {
           >
             <Shield className="w-3.5 h-3.5 text-amber-400" />
             Portal de Auditoría (S3-03)
+          </Link>
+
+          <Link
+            to="/vote"
+            className="text-xs font-semibold text-stone-300 hover:text-white flex items-center gap-1.5 transition-colors"
+          >
+            <Vote className="w-3.5 h-3.5 text-emerald-400" />
+            Votar
           </Link>
 
           <Link
@@ -88,13 +96,57 @@ export const PublicLandingRequestPage: React.FC = () => {
             <span>Soberanía Cívica y Criptografía Transparente</span>
           </div>
           <h2 className="font-title text-3xl sm:text-4xl font-bold text-civic-navy-900">
-            Solicite su Proceso Electoral Institucional
+            Votación Electrónica Segura y Auditable
           </h2>
           <p className="text-stone-600 text-sm max-w-2xl mx-auto leading-relaxed">
-            Universidades, colegios profesionales, municipios y organizaciones pueden gestionar sus elecciones con padrón auditable, papeletas dinámicas y secreto de voto respaldado matemáticamente.
+            Universidades, colegios profesionales, municipios y organizaciones gestionan sus elecciones con padrón auditable, papeletas dinámicas y secreto de voto respaldado matemáticamente.
           </p>
         </div>
 
+        {/* Dos caminos: votante e institución */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <Link
+            to="/vote"
+            className="group bg-civic-navy-900 hover:bg-civic-navy-800 border border-civic-navy-800 rounded-2xl p-6 shadow-electoral text-white flex flex-col justify-between gap-5 transition-colors"
+          >
+            <div className="space-y-2">
+              <div className="w-11 h-11 rounded-xl bg-seal-emerald/20 border border-seal-emerald/40 flex items-center justify-center">
+                <Vote className="w-6 h-6 text-emerald-400" />
+              </div>
+              <h3 className="font-title text-xl font-bold text-white">Soy votante</h3>
+              <p className="text-xs text-stone-300 leading-relaxed">
+                Ingrese a la cabina electoral con su Documento de Identidad y su credencial de votación de un solo uso.
+              </p>
+            </div>
+            <span className="inline-flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 group-hover:bg-emerald-500 rounded-xl text-sm font-bold transition-colors">
+              <KeyRound className="w-4 h-4" />
+              Ir a votar
+              <ArrowRight className="w-4 h-4" />
+            </span>
+          </Link>
+
+          <a
+            href="#solicitud-eleccion"
+            className="group bg-white hover:border-civic-navy-800 border border-stone-300 rounded-2xl p-6 shadow-electoral flex flex-col justify-between gap-5 transition-colors"
+          >
+            <div className="space-y-2">
+              <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center">
+                <Building className="w-6 h-6 text-seal-amber" />
+              </div>
+              <h3 className="font-title text-xl font-bold text-civic-navy-900">Soy una institución</h3>
+              <p className="text-xs text-stone-600 leading-relaxed">
+                Solicite un espacio aislado para organizar el proceso electoral de su universidad, colegio u organización.
+              </p>
+            </div>
+            <span className="inline-flex items-center justify-center gap-2 w-full py-3 bg-civic-navy-900 group-hover:bg-civic-navy-800 rounded-xl text-sm font-bold text-white transition-colors">
+              <Send className="w-4 h-4" />
+              Solicitar elección
+              <ArrowRight className="w-4 h-4" />
+            </span>
+          </a>
+        </div>
+
+        <div id="solicitud-eleccion" className="scroll-mt-6" />
         {submitted ? (
           <div className="bg-white border border-stone-300 rounded-2xl p-8 sm:p-10 text-center space-y-4 shadow-electoral max-w-xl mx-auto">
             <div className="w-14 h-14 bg-emerald-100 text-seal-emerald rounded-full flex items-center justify-center mx-auto">
