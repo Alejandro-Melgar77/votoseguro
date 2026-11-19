@@ -22,6 +22,7 @@ echo "== Código: rama $BRANCH"
 cd "$APP"
 git fetch --quiet origin "$BRANCH"
 git reset --quiet --hard "origin/$BRANCH"
+chmod -R a+rX "$APP"
 git log --oneline -1
 
 if [ ! -f "$ENV_FILE" ]; then
