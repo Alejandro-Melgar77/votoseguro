@@ -37,7 +37,7 @@ fi
 
 echo "== Frontend desde s3://$BUCKET"
 mkdir -p "$WEB_ROOT"
-aws s3 sync "s3://$BUCKET" "$WEB_ROOT" --delete --region "$REGION" --only-show-errors
+aws s3 sync "s3://$BUCKET" "$WEB_ROOT" --delete --exact-timestamps --region "$REGION" --only-show-errors
 
 echo "== Contenedores"
 docker volume inspect app_pgdata >/dev/null 2>&1 || docker volume create app_pgdata >/dev/null
