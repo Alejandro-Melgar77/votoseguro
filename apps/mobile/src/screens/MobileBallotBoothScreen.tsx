@@ -526,9 +526,9 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
           <View style={styles.ballotHeaderCard}>
             <Text style={styles.electionTitle}>{ballot.election_name}</Text>
             <Text style={styles.voterEstamento}>
-              Elector: {ballot.voter.full_name} • {ballot.voter.group_name}
+              Elector: {(ballot.voter || (ballot as any).voter_profile)?.full_name || 'Elector Habilitado'} • {(ballot.voter || (ballot as any).voter_profile)?.group_name || ''}
             </Text>
-            <Text style={styles.nodePath}>Mesa / Nodo: {ballot.voter.node_path}</Text>
+            <Text style={styles.nodePath}>Mesa / Nodo: {(ballot.voter || (ballot as any).voter_profile)?.node_path || ''}</Text>
           </View>
 
           {/* Barra de Accesibilidad por Voz (IA-L4) */}
@@ -684,10 +684,10 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
 
                     <View style={styles.candidateInfo}>
                       <Text style={[styles.candidateName, selected && styles.candidateNameSelected]}>
-                        {cand.name}
+                        {cand.name || (cand as any).full_name}
                       </Text>
                       <Text style={styles.candidateParty}>
-                        {cand.party_or_front || 'Candidatura Independiente'}
+                        {cand.party_or_front || (cand as any).party_affiliation || 'Candidatura Independiente'}
                       </Text>
                     </View>
 

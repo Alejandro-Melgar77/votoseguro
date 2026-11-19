@@ -41,9 +41,11 @@ class VoterLoginResponse(BaseModel):
 class BallotCandidateDTO(BaseModel):
     id: uuid.UUID
     full_name: str
+    name: str | None = None
     ballot_number: int | None = None
     ballot_order: int
     party_affiliation: str | None = None
+    party_or_front: str | None = None
     party_color: str | None = None
     photo_url: str | None = None
 
@@ -55,6 +57,8 @@ class BallotContestSectionDTO(BaseModel):
     description: str | None = None
     display_order: int
     scope_level_id: uuid.UUID
+    scope_level_name: str = ""
+    scope_level_depth: int = 1
     allow_blank: bool
     allow_null: bool
     constituency_id: uuid.UUID
@@ -67,6 +71,7 @@ class BallotContestSectionDTO(BaseModel):
 class AutomaticBallotResponse(BaseModel):
     election_id: uuid.UUID
     election_name: str
+    voter: VoterSessionProfile | None = None
     voter_profile: VoterSessionProfile
     contests: list[BallotContestSectionDTO]
     voting_closes_at: datetime

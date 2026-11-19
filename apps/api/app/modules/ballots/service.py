@@ -392,9 +392,11 @@ class BallotService:
                 BallotCandidateDTO(
                     id=c.id,
                     full_name=getattr(c, "name", "") or getattr(c, "full_name", ""),
+                    name=getattr(c, "name", "") or getattr(c, "full_name", ""),
                     ballot_number=getattr(c, "ballot_order", 1),
                     ballot_order=c.ballot_order,
                     party_affiliation=getattr(c, "party_or_front", None),
+                    party_or_front=getattr(c, "party_or_front", None),
                     party_color=getattr(c, "party_color", None),
                     photo_url=c.photo_url,
                 )
@@ -409,6 +411,8 @@ class BallotService:
                     description=contest.description,
                     display_order=contest.display_order,
                     scope_level_id=contest.scope_level_id,
+                    scope_level_name=matched_node.name,
+                    scope_level_depth=getattr(matched_node, "depth", 1),
                     allow_blank=contest.allow_blank,
                     allow_null=contest.allow_null,
                     constituency_id=constituency.id,
@@ -419,19 +423,22 @@ class BallotService:
                 )
             )
 
+        voter_profile_dto = VoterSessionProfile(
+            id=voter.id,
+            document_id=voter.document_id,
+            full_name=voter.full_name,
+            group_id=voter.group_id,
+            group_name=voter.group.name if voter.group else "",
+            node_id=voter.node_id,
+            node_name=voter.node.name if voter.node else "",
+            node_path=voter.node.path if voter.node else "",
+        )
+
         return AutomaticBallotResponse(
             election_id=election.id,
             election_name=election.name,
-            voter_profile=VoterSessionProfile(
-                id=voter.id,
-                document_id=voter.document_id,
-                full_name=voter.full_name,
-                group_id=voter.group_id,
-                group_name=voter.group.name if voter.group else "",
-                node_id=voter.node_id,
-                node_name=voter.node.name if voter.node else "",
-                node_path=voter.node.path if voter.node else "",
-            ),
+            voter=voter_profile_dto,
+            voter_profile=voter_profile_dto,
             contests=contest_sections,
             voting_closes_at=election.voting_closes_at,
         )

@@ -363,11 +363,11 @@ export const VoterBallotBoothPage: React.FC = () => {
             <div className="bg-white border border-stone-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <div>
                 <span className="text-2xs font-mono text-stone-500 uppercase tracking-wider">VOTANTE IDENTIFICADO</span>
-                <h3 className="text-sm font-bold text-stone-900">{ballotData.voter.full_name}</h3>
+                <h3 className="text-sm font-bold text-stone-900">{(ballotData.voter || (ballotData as any).voter_profile)?.full_name}</h3>
                 <div className="text-xs text-stone-600 flex items-center space-x-3 mt-0.5">
-                  <span>CI: <strong className="font-mono">{ballotData.voter.document_id}</strong></span>
-                  <span>Grupo: <strong>{ballotData.voter.group_name}</strong></span>
-                  <span>Nodo: <strong className="font-mono">{ballotData.voter.node_path}</strong></span>
+                  <span>CI: <strong className="font-mono">{(ballotData.voter || (ballotData as any).voter_profile)?.document_id}</strong></span>
+                  <span>Grupo: <strong>{(ballotData.voter || (ballotData as any).voter_profile)?.group_name}</strong></span>
+                  <span>Nodo: <strong className="font-mono">{(ballotData.voter || (ballotData as any).voter_profile)?.node_path}</strong></span>
                 </div>
               </div>
               <div className="bg-stone-100 border border-stone-300 rounded-lg px-3 py-1.5 text-right">
