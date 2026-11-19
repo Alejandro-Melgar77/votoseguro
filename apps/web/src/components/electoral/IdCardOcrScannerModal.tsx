@@ -52,7 +52,7 @@ export const IdCardOcrScannerModal: React.FC<IdCardOcrScannerModalProps> = ({
 
   const handleExtract = async () => {
     if (!rawText.trim()) {
-      setError('Por favor seleccione una plantilla o pegue el texto de la cédula.');
+      setError('Fotografíe la cédula o pegue el texto que desea revisar.');
       return;
     }
 
@@ -93,7 +93,7 @@ export const IdCardOcrScannerModal: React.FC<IdCardOcrScannerModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-base">Escaneo OCR de Cédula de Identidad</h3>
-              <p className="text-xs text-gray-300">Extracción estructurada con IA Local (IA-L3)</p>
+              <p className="text-xs text-gray-300">Lectura en su dispositivo y extracción asistida por IA</p>
             </div>
           </div>
           <button
@@ -147,11 +147,11 @@ export const IdCardOcrScannerModal: React.FC<IdCardOcrScannerModalProps> = ({
             >
               {loading ? (
                 <>
-                  <span className="animate-spin text-sm">⏳</span> Analizando con LFM3-1.7B...
+                  <span className="animate-spin text-sm">⏳</span> Extrayendo los campos...
                 </>
               ) : (
                 <>
-                  <span>✨</span> Extraer Campos con IA Local
+                  <span>✨</span> Extraer Campos con IA
                 </>
               )}
             </button>

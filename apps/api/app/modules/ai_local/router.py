@@ -3,6 +3,7 @@ Router API para la Suite de Inteligencia Artificial Local (IA-L1 a IA-L5).
 Endpoints versionados bajo /api/v1/ai/
 """
 import uuid
+import logging
 from datetime import datetime, timezone
 from typing import Annotated, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -40,7 +41,8 @@ from app.ai.schemas import (
     AiNodePingResponse,
 )
 
-router = APIRouter(prefix="/ai", tags=["Inteligencia Artificial Local (LFM3-1.7B)"])
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/ai", tags=["Asistencia electoral con IA"])
 
 
 # ==========================================
