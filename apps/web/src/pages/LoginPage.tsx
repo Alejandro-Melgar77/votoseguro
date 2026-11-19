@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { Shield, Lock, Mail, AlertCircle, Clock } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
-import { setAuthSession } from '@/lib/auth-store';
+import { setAuthSession, useAuth } from '@/lib/auth-store';
 import type { TokenResponse } from '@votoseguro/api-client';
 
 export const LoginPage: React.FC = () => {
@@ -13,6 +13,7 @@ export const LoginPage: React.FC = () => {
   const [isLocked, setIsLocked] = useState(false);
 
   const navigate = useNavigate();
+  const { isAuthenticated, homePath } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +43,10 @@ export const LoginPage: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  if (isAuthenticated) {
+    return <Navigate to={homePath} replace />;
+  }
 
   return (
     <div className="min-h-screen bg-ballot-ivory-100 flex flex-col justify-center items-center p-4 font-sans">

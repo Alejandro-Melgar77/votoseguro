@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useAuth } from '@/lib/auth-store';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -35,6 +36,7 @@ interface ReceiptVerificationResponse {
 }
 
 export const PublicReceiptVerifierPage: React.FC = () => {
+  const { isAuthenticated, homePath } = useAuth();
   const { receiptHash: urlReceiptHash } = useParams<{ receiptHash?: string }>();
   const [searchParams] = useSearchParams();
 
@@ -90,17 +92,17 @@ export const PublicReceiptVerifierPage: React.FC = () => {
               VS
             </div>
             <div>
-              <h1 className="font-title text-base font-bold tracking-wide">VotoSeguro v2.0</h1>
+              <h1 className="font-title text-base font-bold tracking-wide text-white">VotoSeguro v2.0</h1>
               <p className="text-[11px] text-stone-300 font-sans">Verificador Universal de Comprobantes Criptográficos</p>
             </div>
           </div>
 
           <Link
-            to="/"
+            to={homePath}
             className="text-xs text-stone-300 hover:text-white flex items-center space-x-1.5 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Inicio</span>
+            <span>{isAuthenticated ? 'Volver a mi panel' : 'Inicio'}</span>
           </Link>
         </div>
       </header>

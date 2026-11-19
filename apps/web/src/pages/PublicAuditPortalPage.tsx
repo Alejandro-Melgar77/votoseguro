@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '@/lib/auth-store';
 import {
   Shield,
   ShieldCheck,
@@ -92,6 +93,7 @@ interface PublicAuditDossier {
 }
 
 export const PublicAuditPortalPage: React.FC = () => {
+  const { isAuthenticated, homePath } = useAuth();
   const { electionId: routeElectionId } = useParams<{ electionId: string }>();
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -184,10 +186,10 @@ export const PublicAuditPortalPage: React.FC = () => {
             </Link>
 
             <Link
-              to="/login"
+              to={isAuthenticated ? homePath : '/login'}
               className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 transition-colors"
             >
-              Acceso Autoridades
+              {isAuthenticated ? 'Volver a mi panel' : 'Acceso Autoridades'}
             </Link>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/lib/auth-store';
 import {
   BookOpen,
   Vote,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 
 export const UserAndAdminManualPage: React.FC = () => {
+  const { isAuthenticated, homePath } = useAuth();
   const [activeTab, setActiveTab] = useState<'voter' | 'admin' | 'trustee' | 'observer' | 'local_ai'>('voter');
 
   return (
@@ -31,7 +33,7 @@ export const UserAndAdminManualPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Link
-              to="/"
+              to={homePath}
               className="flex items-center space-x-2 text-slate-400 hover:text-slate-200 transition-colors mr-3"
             >
               <ArrowLeft className="w-5 h-5" />

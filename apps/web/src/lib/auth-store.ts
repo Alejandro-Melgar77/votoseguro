@@ -79,5 +79,10 @@ export function useAuth() {
     isAdminGeneral: state.user?.role === 'ADMIN_GENERAL',
     isAdminSegment: state.user?.role === 'ADMIN_SEGMENT',
     isObserver: state.user?.role === 'OBSERVER',
+    homePath: !state.isAuthenticated
+      ? '/'
+      : state.user?.role === 'PLATFORM_ADMIN'
+        ? '/platform/console'
+        : '/workspace',
   };
 }

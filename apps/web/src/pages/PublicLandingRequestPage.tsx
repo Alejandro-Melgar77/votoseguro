@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/lib/auth-store';
 import { Shield, Send, CheckCircle2, AlertCircle, Building, Calendar, Mail, User, Phone, FileText, Layers, ExternalLink, Vote, ArrowRight, KeyRound } from 'lucide-react';
 import { api } from '@/lib/api';
 import { LanguageSwitcher } from '@/components/electoral/LanguageSwitcher';
 import type { ElectionRequestCreate, OrganizationType } from '@votoseguro/api-client';
 
 export const PublicLandingRequestPage: React.FC = () => {
+  const { isAuthenticated, homePath } = useAuth();
   const [formData, setFormData] = useState<ElectionRequestCreate>({
     organization_name: '',
     org_type: 'UNIVERSITY',
@@ -80,10 +82,10 @@ export const PublicLandingRequestPage: React.FC = () => {
           </Link>
 
           <Link
-            to="/login"
+            to={isAuthenticated ? homePath : '/login'}
             className="px-4 py-2 bg-civic-navy-800 hover:bg-civic-navy-700 text-xs font-semibold rounded-lg text-white transition-colors border border-civic-navy-700 shadow-sm"
           >
-            Acceso Institucional
+            {isAuthenticated ? 'Volver a mi panel' : 'Acceso Institucional'}
           </Link>
         </div>
       </header>
