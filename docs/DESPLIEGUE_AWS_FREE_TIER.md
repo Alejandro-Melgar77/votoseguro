@@ -26,7 +26,29 @@ La plataforma **VotoSeguro** se encuentra completamente desplegada y en operaci�
 ### Demostración Universitaria (Universidad EL GRAN ESTUDIO)
 - **Admin General:** `admin@granestudio.edu.bo` / `GranEstudio2026!` (Dr. Fernando Torrico)
 - **Delegado de Segmento:** `delegado.docentes@granestudio.edu.bo` / `Docentes2026!`
-- **Votante Ejemplo:** Cédula y acceso provisto en el padrón electoral
+
+### Usuario Común / Observador Electoral (Ingreso Web Login)
+- **Email:** `observador@granestudio.edu.bo`
+- **Contraseña:** `UsuarioComun2026!`
+- **Rol:** `OBSERVER` (Carlos Votante - visualización de monitoreo en vivo y actas)
+
+### Votantes Comunes para Sufragio en Cabina Digital (`/vote`)
+Para votar ingrese a [http://32.197.219.229/vote](http://32.197.219.229/vote) con cualquiera de estos votantes activos:
+1. **José Rodríguez (Estudiante Informática):**
+   - **Documento (CI):** `CI-8001001`
+   - **Credencial de Votación:** `VS-5AEA-YBGX-UWM8`
+2. **Alejandro Melgar Suárez (Estudiante Informática):**
+   - **Documento (CI):** `CI-8001003`
+   - **Credencial de Votación:** `VS-ULXE-C6GE-9T25`
+3. **Valeria Paz Justiniano (Estudiante Informática):**
+   - **Documento (CI):** `CI-8001004`
+   - **Credencial de Votación:** `VS-DTDE-7Q8M-VM5F`
+4. **Rodrigo Chávez Méndez (Estudiante Informática):**
+   - **Documento (CI):** `CI-8001005`
+   - **Credencial de Votación:** `VS-MWC7-27DZ-STV9`
+5. **Camila Flores Torrico (Estudiante Informática):**
+   - **Documento (CI):** `CI-8001006`
+   - **Credencial de Votación:** `VS-YM6N-QBRY-X2JJ`
 
 ### Demostración Nacional (Elecciones Nacionales Ecuador)
 - **Admin Electoral:** `admin@cne.gob.ec` / `Ecuador2026!`
