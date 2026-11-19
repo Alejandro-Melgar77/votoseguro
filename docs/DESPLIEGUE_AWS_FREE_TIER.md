@@ -1,136 +1,94 @@
-# Guía de Despliegue en AWS (Nivel Gratuito / Créditos Plan FREE)
+# Despliegue en AWS (capa gratuita) — rama `JERS`
 
-La plataforma **VotoSeguro** se encuentra completamente desplegada y en operación activa en **AWS (Región us-east-1)**, extrayendo el código directamente desde la rama **`JERS`** del repositorio [https://github.com/Alejandro-Melgar77/votoseguro](https://github.com/Alejandro-Melgar77/votoseguro).
+## 1. URL única
 
----
+**https://32-197-219-229.sslip.io**
 
-## 1. URLs de Acceso y Estado de Servicios
+Certificado válido de Let's Encrypt (sin aviso de "conexión no segura"). Cualquier acceso por
+`http://`, por la IP `32.197.219.229` o por `ec2-32-197-219-229.compute-1.amazonaws.com`
+redirige automáticamente a esa URL.
 
-| Recurso / Servicio | URL / Dirección | Descripción |
-| :--- | :--- | :--- |
-| **Portal Web (DNS Oficial)** | [http://ec2-32-197-219-229.compute-1.amazonaws.com](http://ec2-32-197-219-229.compute-1.amazonaws.com) | Frontend React con OCR y votación privada |
-| **Portal Web (IP Directa)** | [http://32.197.219.229](http://32.197.219.229) | Acceso directo sin resolución DNS externa |
-| **API Health Check** | [http://32.197.219.229/health](http://32.197.219.229/health) | Comprobación de salud en vivo de API y PostgreSQL |
-| **Documentación Swagger** | [http://32.197.219.229/docs](http://32.197.219.229/docs) | Catálogo interactivo OpenAPI de todos los endpoints |
-| **OpenAPI Spec** | [http://32.197.219.229/openapi.json](http://32.197.219.229/openapi.json) | Especificación JSON de rutas |
+| Página | Ruta |
+|---|---|
+| Página principal (solicitud de elecciones) | `/` |
+| Ingreso de administradores y observadores | `/login` |
+| Cabina de votación | `/vote` |
+| Verificar comprobante | `/verify-receipt` |
+| Portal público de auditoría | `/audit-portal` |
+| Manual de usuario | `/manual` |
+| Estado del sistema | `/health` |
+| API (Swagger) | `/docs` |
 
----
+> `sslip.io` es un DNS público gratuito que resuelve `32-197-219-229.sslip.io` a la IP del EC2.
+> CloudFront no se usa porque AWS exige verificar la cuenta (ticket a soporte) antes de crear
+> distribuciones. Si la IP del EC2 cambia (detener e iniciar la instancia), la URL cambia a
+> `<nueva-ip-con-guiones>.sslip.io` y `update.sh` emite el certificado nuevo solo.
 
-## 2. Credenciales de Acceso Iniciales Sembradas
+## 2. Usuarios de prueba
 
-### Superadministrador de Plataforma
-- **Email:** `admin@votoseguro.org`
-- **Contraseña:** `AdminPlatform2026!`
-- **Rol:** `PLATFORM_ADMIN` (gestión de instituciones, aprobación de elecciones)
+| Rol | Correo | Contraseña |
+|---|---|---|
+| Operador de plataforma | admin@votoseguro.org | AdminPlatform2026! |
+| Admin general (U. EL GRAN ESTUDIO) | admin@granestudio.edu.bo | GranEstudio2026! |
+| Delegado de segmento (FICCT) | delegado.ficct@granestudio.edu.bo | Delegado2026! |
+| Observador (solo lectura: monitoreo, resultados, integridad) | observador@granestudio.edu.bo | UsuarioComun2026! |
+| Admin general (Ecuador) | admin@cne.gob.ec | Ecuador2026! |
 
-### Demostración Universitaria (Universidad EL GRAN ESTUDIO)
-- **Admin General:** `admin@granestudio.edu.bo` / `GranEstudio2026!` (Dr. Fernando Torrico)
-- **Delegado de Segmento:** `delegado.docentes@granestudio.edu.bo` / `Docentes2026!`
+### Votantes (cabina `/vote`)
 
-### Usuario Común / Observador Electoral (Ingreso Web Login)
-- **Email:** `observador@granestudio.edu.bo`
-- **Contraseña:** `UsuarioComun2026!`
-- **Rol:** `OBSERVER` (Carlos Votante - visualización de monitoreo en vivo y actas)
+La votación de "Elecciones Generales Universitarias 2026" está abierta. Cada credencial sirve
+para **un solo voto**; el admin general ve todas en *Padrón → Credenciales Demo*.
 
-### Votantes Comunes para Sufragio en Cabina Digital (`/vote`)
-Para votar ingrese a [http://32.197.219.229/vote](http://32.197.219.229/vote) con cualquiera de estos votantes activos:
-1. **José Rodríguez (Estudiante Informática):**
-   - **Documento (CI):** `CI-8001001`
-   - **Credencial de Votación:** `VS-5AEA-YBGX-UWM8`
-2. **Alejandro Melgar Suárez (Estudiante Informática):**
-   - **Documento (CI):** `CI-8001003`
-   - **Credencial de Votación:** `VS-ULXE-C6GE-9T25`
-3. **Valeria Paz Justiniano (Estudiante Informática):**
-   - **Documento (CI):** `CI-8001004`
-   - **Credencial de Votación:** `VS-DTDE-7Q8M-VM5F`
-4. **Rodrigo Chávez Méndez (Estudiante Informática):**
-   - **Documento (CI):** `CI-8001005`
-   - **Credencial de Votación:** `VS-MWC7-27DZ-STV9`
-5. **Camila Flores Torrico (Estudiante Informática):**
-   - **Documento (CI):** `CI-8001006`
-   - **Credencial de Votación:** `VS-YM6N-QBRY-X2JJ`
+| Votante | CI | Credencial |
+|---|---|---|
+| José Rodríguez | CI-8001001 | VS-5AEA-YBGX-UWM8 |
+| Alejandro Melgar Suárez | CI-8001003 | VS-ULXE-C6GE-9T25 |
+| Valeria Paz Justiniano | CI-8001004 | VS-DTDE-7Q8M-VM5F |
+| Rodrigo Chávez Méndez | CI-8001005 | VS-MWC7-27DZ-STV9 |
+| Camila Flores Torrico | CI-8001006 | VS-YM6N-QBRY-X2JJ |
 
-### Demostración Nacional (Elecciones Nacionales Ecuador)
-- **Admin Electoral:** `admin@cne.gob.ec` / `Ecuador2026!`
+## 3. Arquitectura (sin cargos)
 
----
+Un único EC2 `t3.micro` (capa gratuita) con 2 GB de swap:
 
-## 3. Arquitectura Implementada (Optimización Cero Costos)
+- **nginx**: HTTPS (Let's Encrypt, renovación automática con `votoseguro-certbot.timer`),
+  sirve el frontend React y hace proxy de `/api` (incluye WebSocket) a la API.
+- **Docker Compose** (`infra/aws/server/docker-compose.prod.yml`): PostgreSQL 16 y API FastAPI.
+  Al arrancar aplica migraciones y el seed idempotente.
+- **S3** (`votoseguro-web-<cuenta>`): artefactos compilados del frontend.
+- **SSM**: administración sin SSH.
+- Secretos en `/opt/votoseguro/.env` del servidor (no en el repositorio).
 
-```
-[ Usuario / Navegador Web ]
-          │
-          │ HTTP Port 80 (o HTTPS Port 443 SSL Autofirmado)
-          ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ Amazon EC2 (t3.micro - 1 vCPU, 1 GB RAM + 2 GB Swap - us-east-1a)      │
-│ ────────────────────────────────────────────────────────────────────── │
-│                                                                        │
-│   ┌────────────────────────────────────────────────────────────────┐   │
-│   │ Nginx Reverse Proxy (Puerto 80 / 443)                          │   │
-│   │  ├─ /              ──> /var/www/votoseguro/web (Frontend React)│   │
-│   │  ├─ /api/v1/       ──> 127.0.0.1:8000 (Proxy a FastAPI)       │   │
-│   │  ├─ /docs          ──> 127.0.0.1:8000/docs                     │   │
-│   │  └─ /health        ──> 127.0.0.1:8000/api/v1/health            │   │
-│   └────────────────────────────────────────────────────────────────┘   │
-│                                │                                       │
-│                ┌───────────────┴───────────────┐                       │
-│                ▼                               ▼                       │
-│   ┌───────────────────────────┐   ┌───────────────────────────────┐    │
-│   │ Contenedor Docker: api    │   │ Contenedor Docker: postgres   │    │
-│   │ (FastAPI + APScheduler)   │──>│ (PostgreSQL 16 Alpine)        │    │
-│   │ Migraciones Alembic 1-8   │   │ Volumen EBS persistente pgdata│    │
-│   └───────────────────────────┘   └───────────────────────────────┘    │
-└────────────────────────────────────────────────────────────────────────┘
-```
+OCR: corre en el navegador (Tesseract, archivos servidos desde `/ocr`), la foto no sale del
+dispositivo; el backend solo recibe el texto.
 
-### Por qué esta arquitectura garantiza tarifa $0 / preservación de créditos:
-1. **EC2 t3.micro:** Forma parte de las **750 horas mensuales gratuitas** de la capa gratuita de AWS.
-2. **Almacenamiento EBS gp3 (20 GB):** La capa gratuita incluye hasta 30 GB al mes sin costo.
-3. **Memoria Swap (2 GB):** Permite ejecutar PostgreSQL 16 y FastAPI con total estabilidad sin necesidad de pagar por una instancia grande.
-4. **Descarte de NAT Gateway y ALB:** Evita los ~$85 USD mensuales que habrían agotado los créditos de la cuenta en pocas semanas.
-5. **Mismo Origen (Same-Origin):** Frontend y Backend comparten la misma IP y puerto 80, eliminando fallos de CORS y la necesidad de comprar dominios.
+IA local: el servidor está con `AI_LOCAL_ENABLED=false` y usa reglas deterministas. Para usar el
+modelo local, en la PC con Ollama ejecute `INICIAR_IA_LOCAL.bat` (túnel ngrok) y en el servidor
+ponga `AI_LOCAL_ENABLED=true` en `/opt/votoseguro/.env` y vuelva a ejecutar `update.sh`.
 
----
+## 4. Actualizar desde GitHub
 
-## 4. Mantenimiento y Actualización desde GitHub (Rama `JERS`)
+Desde la PC (con credenciales AWS en variables de entorno o perfil):
 
-El servidor está configurado para actualizarse directamente ante nuevos commits en la rama `JERS`.
-
-### Opción A: Desde la Consola de AWS (AWS Systems Manager - Sin claves SSH)
-1. Ingrese a la consola de AWS -> **EC2** -> Seleccione la instancia `votoseguro-free-tier-server`.
-2. Haga clic en **Connect** -> **Session Manager** -> **Connect**.
-3. Ejecute el comando de actualización:
-   ```bash
-   sudo /opt/votoseguro/update.sh
-   ```
-   Este script descarga los últimos cambios de `origin/JERS`, reconstruye los contenedores si es necesario y reinicia el servicio sin interrupciones.
-
-### Opción B: Inspección de Logs
-Para ver los registros en vivo del backend:
 ```bash
-docker logs -f votoseguro-api
+python scripts/deploy_aws_free_tier.py --skip-stack
 ```
-Para ver los registros de la base de datos:
+
+Compila el frontend, lo sube a S3 y ejecuta en el EC2 (vía SSM)
+`infra/aws/server/update.sh`, que hace `git reset` a `origin/JERS`, reconstruye la API,
+sincroniza el frontend y renueva nginx/HTTPS.
+
+Solo backend (desde *Systems Manager → Run Command → AWS-RunShellScript*):
+
 ```bash
-docker logs -f votoseguro-postgres
+bash /opt/votoseguro/app/infra/aws/server/update.sh
 ```
 
----
+Logs: `docker logs --tail 100 votoseguro-api`.
 
-## 5. Limpieza / Apagado de Recursos (Cuando Finalice el Proyecto)
+## 5. Apagar todo al terminar
 
-Para destruir todos los recursos y garantizar que nunca se genere ningún cobro en el futuro:
-
-```powershell
-py -3.13 -c "
-import csv, boto3
-with open('IA-Codex_accessKeys.csv', encoding='utf-8-sig') as f:
-    row = list(csv.DictReader(f))[0]
-ak = [v for k,v in row.items() if 'access key' in k.lower() and 'secret' not in k.lower()][0].strip()
-sk = [v for k,v in row.items() if 'secret' in k.lower()][0].strip()
-cf = boto3.client('cloudformation', aws_access_key_id=ak, aws_secret_access_key=sk, region_name='us-east-1')
-cf.delete_stack(StackName='votoseguro-free-tier')
-print('Eliminación del stack completada. Todos los recursos fueron destruidos.')
-"
+```bash
+aws s3 rm s3://votoseguro-web-<cuenta> --recursive
+aws cloudformation delete-stack --stack-name votoseguro-free-tier --region us-east-1
 ```
