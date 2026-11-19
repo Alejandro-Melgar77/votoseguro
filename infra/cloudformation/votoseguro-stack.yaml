@@ -1,0 +1,382 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'VotoSeguro AWS Free Tier Stack - Branch JERS (Optimizado para Cero Costos / Creditos FREE)'
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: Tipo de instancia EC2 (t3.micro incluido en Nivel Gratuito de AWS)
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Description: AMI oficial de Amazon Linux 2023
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-02116bd2ab0c22385
+    Description: VPC por defecto para despliegue
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-01206a3f3f381f3d3
+    Description: Subred publica por defecto en us-east-1a
+  GithubBranch:
+    Type: String
+    Default: JERS
+    Description: Rama de GitHub desde la cual desplegar el codigo fuente
+  GithubRepoUrl:
+    Type: String
+    Default: https://github.com/Alejandro-Melgar77/votoseguro.git
+    Description: Repositorio publico de GitHub
+
+Resources:
+  # 1. IAM Role e Instance Profile para administracion remota segura via AWS Systems Manager (SSM)
+  EC2SSMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-ec2-ssm-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub '${AWS::StackName}-ec2-instance-profile'
+      Roles:
+        - !Ref EC2SSMRole
+
+  # 2. Security Group para el backend EC2
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${AWS::StackName}-backend-sg'
+      GroupDescription: 'Acceso HTTP publico y CloudFront para VotoSeguro Backend'
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: 'Trafico HTTP desde CloudFront / Internet'
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: 'Acceso SSH opcional'
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: 'Salida completa a internet'
+
+  # 3. Instancia EC2 con arranque automatico desde la rama JERS
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref AmiId
+      SubnetId: !Ref SubnetId
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      SecurityGroupIds:
+        - !GetAtt EC2SecurityGroup.GroupId
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-backend'
+        - Key: Branch
+          Value: !Ref GithubBranch
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+          echo "=== INICIANDO DESPLIEGUE VOTOSEGURO (RAMA ${GithubBranch}) ==="
+
+          # 1. Configurar 2GB de memoria Swap
+          if [ ! -f /swapfile ]; then
+              dd if=/dev/zero of=/swapfile bs=128M count=16
+              chmod 600 /swapfile
+              mkswap /swapfile
+              swapon /swapfile
+              echo '/swapfile swap swap defaults 0 0' >> /etc/fstab
+              echo "Memoria Swap de 2GB activada exitosamente."
+          fi
+
+          # 2. Instalar paquetes necesarios
+          dnf update -y
+          dnf install -y git docker nginx
+          systemctl enable --now docker
+          usermod -aG docker ec2-user
+
+          # 3. Instalar Docker Compose CLI plugin
+          mkdir -p /usr/local/lib/docker/cli-plugins
+          curl -sSL https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          ln -sf /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
+
+          # 4. Clonar el repositorio desde la rama JERS
+          mkdir -p /opt/votoseguro
+          git clone -b ${GithubBranch} ${GithubRepoUrl} /opt/votoseguro/app
+          cd /opt/votoseguro/app
+
+          # 5. Configurar Nginx como Reverse Proxy local
+          cat << 'EOF_NGINX' > /etc/nginx/conf.d/votoseguro.conf
+          server {
+              listen 80 default_server;
+              server_name _;
+
+              client_max_body_size 25M;
+
+              location /api/ {
+                  proxy_pass http://127.0.0.1:8000/api/;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+                  proxy_read_timeout 300s;
+                  proxy_connect_timeout 75s;
+              }
+
+              location /docs {
+                  proxy_pass http://127.0.0.1:8000/docs;
+                  proxy_set_header Host $host;
+              }
+
+              location /openapi.json {
+                  proxy_pass http://127.0.0.1:8000/openapi.json;
+                  proxy_set_header Host $host;
+              }
+
+              location /health {
+                  proxy_pass http://127.0.0.1:8000/api/v1/health;
+                  proxy_set_header Host $host;
+              }
+
+              location / {
+                  default_type application/json;
+                  return 200 '{"status":"online","service":"votoseguro-ec2-backend","branch":"JERS"}';
+              }
+          }
+          EOF_NGINX
+
+          sed -i 's/listen       80 default_server;/listen       8088 default_server;/' /etc/nginx/nginx.conf || true
+          systemctl enable --now nginx
+          systemctl restart nginx
+
+          # 6. Generar archivo docker-compose.prod.yml
+          cat << 'EOF_COMPOSE' > /opt/votoseguro/app/docker-compose.prod.yml
+          version: '3.8'
+
+          services:
+            postgres:
+              image: postgres:16-alpine
+              container_name: votoseguro-postgres
+              restart: always
+              environment:
+                POSTGRES_USER: votoseguro
+                POSTGRES_PASSWORD: votoseguro_prod_db_pwd_2026!
+                POSTGRES_DB: votoseguro_db
+              ports:
+                - "127.0.0.1:5432:5432"
+              volumes:
+                - pgdata:/var/lib/postgresql/data
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U votoseguro -d votoseguro_db"]
+                interval: 5s
+                timeout: 5s
+                retries: 5
+
+            api:
+              build:
+                context: ./apps/api
+                dockerfile: Dockerfile
+              container_name: votoseguro-api
+              restart: always
+              depends_on:
+                postgres:
+                  condition: service_healthy
+              environment:
+                DATABASE_URL: postgresql+asyncpg://votoseguro:votoseguro_prod_db_pwd_2026!@postgres:5432/votoseguro_db
+                SYNC_DATABASE_URL: postgresql+psycopg://votoseguro:votoseguro_prod_db_pwd_2026!@postgres:5432/votoseguro_db
+                ENVIRONMENT: staging
+                DEBUG: "true"
+                SECRET_KEY: prod_jwt_secret_key_minimum_32_characters_long_jers_2026!
+                NULLIFIER_SECRET: prod_nullifier_secret_key_minimum_32_chars_jers_2026!
+                RUN_EMBEDDED_SCHEDULER: "true"
+                PLATFORM_ADMIN_EMAIL: admin@votoseguro.org
+                PLATFORM_ADMIN_PASSWORD: AdminPlatform2026!
+                CORS_ORIGINS: "*"
+                AI_LOCAL_ENABLED: "false"
+                AI_EXTERNAL_ENABLED: "false"
+              ports:
+                - "127.0.0.1:8000:8000"
+              command: >
+                sh -c "alembic upgrade head &&
+                       python -m app.db.seed_demo &&
+                       uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+          volumes:
+            pgdata:
+          EOF_COMPOSE
+
+          # 7. Iniciar los contenedores
+          cd /opt/votoseguro/app
+          docker compose -f docker-compose.prod.yml up -d --build
+
+          # 8. Script para actualizar automaticamente ante nuevos commits en JERS
+          cat << 'EOF_UPDATE' > /opt/votoseguro/update.sh
+          #!/bin/bash
+          set -e
+          cd /opt/votoseguro/app
+          git fetch origin JERS
+          git reset --hard origin/JERS
+          docker compose -f docker-compose.prod.yml up -d --build
+          echo "VotoSeguro actualizado a la ultima version de JERS"
+          EOF_UPDATE
+          chmod +x /opt/votoseguro/update.sh
+
+          echo "VOTOSEGURO_DESPLIEGUE_COMPLETADO $(date)" > /opt/votoseguro/status.txt
+          echo "=== DESPLIEGUE FINALIZADO EXITOSAMENTE ==="
+
+  # 4. Bucket S3 para Frontend React
+  WebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'votoseguro-web-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # 5. CloudFront Origin Access Control (OAC) para acceso seguro a S3
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AWS::StackName}-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # 6. Politica del bucket S3 para permitir acceso a CloudFront
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipalReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${WebBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+  # 7. Distribucion CloudFront con HTTPS gratuito y doble origen
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: 'VotoSeguro Web y API Distribution (Rama JERS)'
+        Enabled: true
+        HttpVersion: http2and3
+        DefaultRootObject: index.html
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+            S3OriginConfig: {}
+          - Id: EC2Origin
+            DomainName: !GetAtt EC2Instance.PublicDnsName
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+              OriginKeepaliveTimeout: 5
+              OriginReadTimeout: 30
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: EC2Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachedMethods: [GET, HEAD]
+            Compress: false
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # Managed-AllViewerExceptHostHeader
+          - PathPattern: /docs*
+            TargetOriginId: EC2Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            Compress: false
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+          - PathPattern: /openapi.json
+            TargetOriginId: EC2Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            Compress: false
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+          - PathPattern: /health
+            TargetOriginId: EC2Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            Compress: false
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+
+Outputs:
+  CloudFrontUrl:
+    Description: 'URL Publica HTTPS de VotoSeguro'
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+  CloudFrontDomain:
+    Description: 'Dominio CloudFront'
+    Value: !GetAtt CloudFrontDistribution.DomainName
+  CloudFrontDistributionId:
+    Description: 'ID de Distribucion CloudFront'
+    Value: !Ref CloudFrontDistribution
+  EC2PublicIp:
+    Description: 'IP Publica del Servidor Backend EC2'
+    Value: !GetAtt EC2Instance.PublicIp
+  EC2PublicDns:
+    Description: 'DNS Publico del Servidor Backend EC2'
+    Value: !GetAtt EC2Instance.PublicDnsName
+  WebBucketName:
+    Description: 'Nombre del Bucket S3 del Frontend'
+    Value: !Ref WebBucket
