@@ -14,6 +14,7 @@ import {
   BarChart3,
   Activity,
   FileCheck2,
+  Key,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-store';
 import { TopSecurityBanner } from './TopSecurityBanner';
@@ -136,6 +137,18 @@ export const InstitutionalShell: React.FC<InstitutionalShellProps> = ({
                     >
                       <UserCheck className="w-4 h-4 text-seal-emerald" />
                       <span>Padrón y Registro</span>
+                    </Link>
+
+                    <Link
+                      to={`/elections/${activeElectionId}/ceremony`}
+                      className={`flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                        location.pathname.includes('/ceremony')
+                          ? 'bg-civic-navy-800 text-white font-semibold'
+                          : 'hover:bg-civic-navy-800/60 text-stone-300'
+                      }`}
+                    >
+                      <Key className="w-4 h-4 text-seal-amber" />
+                      <span>Ceremonia Criptográfica</span>
                     </Link>
 
                     <Link
