@@ -2,6 +2,7 @@
 # Actualiza el servidor a la última versión de la rama JERS.
 # Uso (como root en el EC2): bash /opt/votoseguro/app/infra/aws/server/update.sh
 set -euo pipefail
+umask 022
 
 APP=/opt/votoseguro/app
 ENV_FILE=/opt/votoseguro/.env
@@ -44,6 +45,7 @@ docker image prune -f >/dev/null
 
 echo "== HTTPS para $DOMAIN"
 mkdir -p /var/www/certbot
+chmod -R a+rX /var/www
 if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
     # Configuración temporal solo-HTTP para emitir el primer certificado
     printf '%s\n' \
