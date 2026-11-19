@@ -62,8 +62,8 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ''
     ANTHROPIC_MODEL: str = 'claude-haiku-4-5-20251001'
     ANTHROPIC_TIMEOUT_SECONDS: float = 30.0
-    NGROK_STATIC_DOMAIN: str = "repackage-remarry-reviving.ngrok-free.dev"
-    LLM_BASE_URL: str = "https://repackage-remarry-reviving.ngrok-free.dev/v1"
+    NGROK_STATIC_DOMAIN: str = ""
+    LLM_BASE_URL: str = "http://localhost:11434/v1"
     LLM_MODEL_NAME: str = "votoseguro-lfm3"
     LLM_TIMEOUT_SECONDS: float = 25.0
     STRICT_NEURAL_MODE: bool = False
