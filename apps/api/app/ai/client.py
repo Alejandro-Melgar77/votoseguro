@@ -66,6 +66,9 @@ class LocalLlmEngine:
         Incluye auto-curación para forzar la URL estática de ngrok si la base de datos
         tiene valores obsoletos (localhost / 127.0.0.1 / http://llm o vacíos).
         """
+        if settings.AI_PROVIDER == 'ANTHROPIC':
+            return {'llm_base_url':'https://api.anthropic.com/v1','llm_model_name':settings.ANTHROPIC_MODEL,
+                'provider':'ANTHROPIC','strict_neural_mode':False,'timeout_seconds':settings.ANTHROPIC_TIMEOUT_SECONDS}
         cfg = {
             "llm_base_url": settings.LLM_BASE_URL.rstrip("/"),
             "llm_model_name": settings.LLM_MODEL_NAME,
@@ -120,6 +123,11 @@ class LocalLlmEngine:
           - strict_neural_mode == False: Retorna fallback determinista con ai_source="DETERMINISTIC_FALLBACK"
           - strict_neural_mode == True: Lanza HTTP 503 Service Unavailable informando que se debe iniciar INICIAR_IA_LOCAL.bat
         """
+        if settings.AI_PROVIDER == 'ANTHROPIC' and settings.AI_LOCAL_ENABLED:
+            from app.ai.anthropic_client import AnthropicClient
+            return await AnthropicClient.call_structured(prompt=prompt,schema_cls=schema_cls,fallback_fn=fallback_fn,
+                system_instruction=system_instruction,function_name=function_name,organization_id=organization_id,
+                election_id=election_id,db=db,sanitized_summary=sanitized_summary)
         start_time = time.perf_counter()
         status_result = "FALLBACK_DETERMINISTIC"
         parsed_result: Optional[T] = None
@@ -264,6 +272,9 @@ class LocalLlmEngine:
         Diagnóstico robusto hacia el túnel estático ngrok (OpenAI endpoint o tags nativo de Ollama).
         Previene duplicación de '/v1', valida JSON puro y extrae modelos disponibles.
         """
+        if settings.AI_PROVIDER == 'ANTHROPIC':
+            from app.ai.anthropic_client import AnthropicClient
+            return await AnthropicClient.probe()
         clean_base = (llm_base_url or "").rstrip("/")
         root_url = clean_base[:-3] if clean_base.endswith("/v1") else clean_base
         models_url = f"{root_url}/v1/models"

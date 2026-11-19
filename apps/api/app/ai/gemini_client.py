@@ -63,6 +63,11 @@ class GeminiExternalClient:
         """
         Ejecuta una llamada de texto estructurado JSON hacia Gemini API con fallback determinista.
         """
+        if settings.AI_PROVIDER == 'ANTHROPIC' and settings.AI_EXTERNAL_ENABLED:
+            from app.ai.anthropic_client import AnthropicClient
+            return await AnthropicClient.call_structured(prompt=prompt,schema_cls=schema_cls,fallback_fn=fallback_fn,
+                system_instruction=system_instruction,function_name=function_name,organization_id=organization_id,
+                election_id=election_id,db=db,sanitized_summary=sanitized_summary)
         start_time = time.perf_counter()
         duration_ms = 0
 

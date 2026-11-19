@@ -16,6 +16,11 @@ export const AiEngineTelemetryBadge: React.FC<AiEngineTelemetryBadgeProps> = ({
   className = '',
   compact = false,
 }) => {
+  if (source === 'ANTHROPIC_API') {
+    return <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-emerald-50 text-emerald-900 border border-emerald-200 ${className}`}>
+      <Sparkles className="w-3.5 h-3.5" /> Claude{!compact && modelName ? ` · ${modelName}` : ''}{latencyMs ? ` · ${Math.round(latencyMs)} ms` : ''}
+    </span>;
+  }
   const isNeuralTunnel =
     source === 'LFM3-1.7B_NEURAL_TUNNEL' ||
     (typeof source === 'string' && source.includes('NEURAL_TUNNEL'));

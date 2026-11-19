@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # Feature flags y configuración para IA Local (Sprint 2 y Sprint 2.5 - Túnel Estático)
     AI_LOCAL_ENABLED: bool = True
     AI_EXTERNAL_ENABLED: bool = True
+    AI_PROVIDER: str = 'LOCAL'
+    ANTHROPIC_API_KEY: str = ''
+    ANTHROPIC_MODEL: str = 'claude-haiku-4-5-20251001'
+    ANTHROPIC_TIMEOUT_SECONDS: float = 30.0
     NGROK_STATIC_DOMAIN: str = "repackage-remarry-reviving.ngrok-free.dev"
     LLM_BASE_URL: str = "https://repackage-remarry-reviving.ngrok-free.dev/v1"
     LLM_MODEL_NAME: str = "votoseguro-lfm3"
