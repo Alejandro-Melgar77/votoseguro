@@ -169,7 +169,7 @@ export const PublicVoterRegistrationPage: React.FC = () => {
               </div>
 
               <div className="pt-2 text-2xs font-mono text-stone-500">
-                Plazo límite de empadronamiento: {formatElectoralDateTime(linkInfo.closes_at)}
+                Plazo límite de empadronamiento: {formatElectoralDateTime(linkInfo.link_expires_at < linkInfo.registration_closes_at ? linkInfo.link_expires_at : linkInfo.registration_closes_at)}
               </div>
             </div>
 

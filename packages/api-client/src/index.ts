@@ -557,7 +557,11 @@ export interface PublicRegistrationInfo {
   group_name: string;
   node_name: string | null;
   node_path: string | null;
-  closes_at: string;
+  group_id: string;
+  node_id: string | null;
+  registration_closes_at: string;
+  link_expires_at: string;
+  is_valid: boolean;
 }
 
 export interface PublicActivationRequest {
