@@ -187,7 +187,7 @@ export const VoterBallotBoothPage: React.FC = () => {
 
       const res = await api.post<CastReceiptResponse>(
         '/ballot/cast',
-        { votes: votesPayload },
+        { selections: votesPayload, votes: votesPayload },
         {
           headers: {
             Authorization: `Bearer ${voterToken}`,

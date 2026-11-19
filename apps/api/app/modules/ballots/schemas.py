@@ -3,7 +3,7 @@ Esquemas Pydantic para Cabina de Votación, Papeleta Automática y Emisión Ató
 """
 import uuid
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.db.models.voting import VoteChoiceType
 
@@ -85,7 +85,14 @@ class BallotSelectionItem(BaseModel):
 
 
 class CastBallotRequest(BaseModel):
-    selections: list[BallotSelectionItem]
+    selections: list[BallotSelectionItem] = Field(default_factory=list)
+    votes: list[BallotSelectionItem] | None = None
+
+    @model_validator(mode="after")
+    def unify_selections(self):
+        if not self.selections and self.votes:
+            self.selections = self.votes
+        return self
 
 
 class CastBallotReceiptResponse(BaseModel):

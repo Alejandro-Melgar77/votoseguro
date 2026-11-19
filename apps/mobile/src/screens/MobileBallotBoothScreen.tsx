@@ -358,6 +358,7 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
 
     try {
       const res = await mobileApi.post<CastReceiptResponse>('/ballot/cast', {
+        selections: votesPayload,
         votes: votesPayload,
       });
 
