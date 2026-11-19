@@ -1,0 +1,62 @@
+# Stack de producción en un único EC2 (capa gratuita). Los secretos viven en
+# /opt/votoseguro/.env (fuera del repositorio); ver infra/aws/server/README.md.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: votoseguro-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ../../../apps/api
+      dockerfile: Dockerfile
+    container_name: votoseguro-api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      SYNC_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      ENVIRONMENT: staging
+      DEBUG: "true"
+      SECRET_KEY: ${SECRET_KEY}
+      NULLIFIER_SECRET: ${NULLIFIER_SECRET}
+      RUN_EMBEDDED_SCHEDULER: "true"
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      AI_LOCAL_ENABLED: ${AI_LOCAL_ENABLED:-false}
+      AI_EXTERNAL_ENABLED: ${AI_EXTERNAL_ENABLED:-false}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://repackage-remarry-reviving.ngrok-free.dev/v1}
+      LLM_MODEL_NAME: ${LLM_MODEL_NAME:-votoseguro-lfm3}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "127.0.0.1:8000:8000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: >
+      sh -c "alembic upgrade head &&
+             python -m app.db.seed_demo &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*"
+
+volumes:
+  pgdata:
+    name: app_pgdata
+    external: true

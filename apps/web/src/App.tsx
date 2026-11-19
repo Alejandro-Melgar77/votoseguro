@@ -74,7 +74,7 @@ export const App: React.FC = () => {
         <Route
           path="/workspace"
           element={
-            <ProtectedRoute allowedRoles={['ADMIN_GENERAL', 'ADMIN_SEGMENT']}>
+            <ProtectedRoute allowedRoles={['ADMIN_GENERAL', 'ADMIN_SEGMENT', 'OBSERVER']}>
               <ElectionWorkspacePage />
             </ProtectedRoute>
           }

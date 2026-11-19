@@ -41,7 +41,6 @@ import {
   VoterStatus,
   RegistrationLink,
   CredentialDispatchItem,
-  CredentialsDispatchResponse,
   RollHashFreezeResponse,
 } from '@votoseguro/api-client';
 import { api } from '@/lib/api';
@@ -233,7 +232,7 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
   const handleApproveVoter = async (voterId: string) => {
     try {
       setActionVoterId(voterId);
-      await api.post(`/voters/${voterId}/approve`);
+      await api.post(`/elections/${electionId}/voters/${voterId}/approve`);
       await loadPendingVoters();
       const summ = await api.get<RegistrationSummaryResponse>(`/elections/${electionId}/registration/summary`);
       setSummary(summ);
@@ -249,7 +248,7 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
     if (!rejectModalVoter) return;
     try {
       setRejectSubmitting(true);
-      await api.post(`/voters/${rejectModalVoter.id}/reject`, {
+      await api.post(`/elections/${electionId}/voters/${rejectModalVoter.id}/reject`, {
         reason: rejectionReason || 'Rechazado por administración electoral',
       });
       setRejectModalVoter(null);
@@ -454,9 +453,9 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
     if (!electionId) return;
     try {
       setCredentialsLoading(true);
-      const data = await api.get<CredentialsDispatchResponse>(`/elections/${electionId}/credentials/dispatch`);
-      setCredentials(data.credentials);
-      setCredentialsTotal(data.total_active_voters);
+      const data = await api.get<CredentialDispatchItem[]>(`/elections/${electionId}/voting/credentials-dispatch`);
+      setCredentials(data);
+      setCredentialsTotal(data.length);
     } catch {
       // silencioso
     } finally {
@@ -533,7 +532,7 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
     try {
       setFreezingRoll(true);
       setRollFreezeFeedback(null);
-      const res = await api.post<RollHashFreezeResponse>(`/elections/${electionId}/freeze-roll-hash`);
+      const res = await api.post<RollHashFreezeResponse>(`/elections/${electionId}/registration/close-now`);
       setRollFreezeFeedback(
         `${res.message} (Huella canónica: ${res.roll_hash.substring(0, 16)}...)`
       );
@@ -1740,7 +1739,7 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
                               </span>
                             </td>
                             <td className="py-3 px-4 text-center">
-                              {cred.is_used ? (
+                              {cred.used ? (
                                 <span className="px-2 py-0.5 rounded-full text-3xs font-bold uppercase font-mono bg-stone-100 text-stone-500">
                                   Utilizada
                                 </span>
@@ -1753,7 +1752,7 @@ export const VoterRollRegistrationPanelPage: React.FC = () => {
                             <td className="py-3 px-4 text-right">
                               <button
                                 type="button"
-                                onClick={() => copyToClipboard(cred.credential_code, cred.voter_id, true)}
+                                onClick={() => copyToClipboard(cred.credential_code || "", cred.voter_id, true)}
                                 className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-2xs font-bold flex items-center space-x-1 ml-auto"
                               >
                                 {isCopied ? (

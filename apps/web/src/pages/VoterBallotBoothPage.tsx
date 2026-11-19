@@ -188,7 +188,7 @@ export const VoterBallotBoothPage: React.FC = () => {
 
       const res = await api.post<CastReceiptResponse>(
         '/ballot/cast',
-        { votes: votesPayload },
+        { selections: votesPayload },
         {
           headers: {
             Authorization: `Bearer ${voterToken}`,
@@ -364,11 +364,11 @@ export const VoterBallotBoothPage: React.FC = () => {
             <div className="bg-white border border-stone-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <div>
                 <span className="text-2xs font-mono text-stone-500 uppercase tracking-wider">VOTANTE IDENTIFICADO</span>
-                <h3 className="text-sm font-bold text-stone-900">{ballotData.voter.full_name}</h3>
+                <h3 className="text-sm font-bold text-stone-900">{ballotData.voter_profile.full_name}</h3>
                 <div className="text-xs text-stone-600 flex items-center space-x-3 mt-0.5">
-                  <span>CI: <strong className="font-mono">{ballotData.voter.document_id}</strong></span>
-                  <span>Grupo: <strong>{ballotData.voter.group_name}</strong></span>
-                  <span>Nodo: <strong className="font-mono">{ballotData.voter.node_path}</strong></span>
+                  <span>CI: <strong className="font-mono">{ballotData.voter_profile.document_id}</strong></span>
+                  <span>Grupo: <strong>{ballotData.voter_profile.group_name}</strong></span>
+                  <span>Nodo: <strong className="font-mono">{ballotData.voter_profile.node_path}</strong></span>
                 </div>
               </div>
               <div className="bg-stone-100 border border-stone-300 rounded-lg px-3 py-1.5 text-right">
@@ -397,8 +397,8 @@ export const VoterBallotBoothPage: React.FC = () => {
                 candidates={
                   ballotData.contests[activeContestIndex]?.candidates.map((c) => ({
                     id: c.id,
-                    name: c.name,
-                    party: c.party_or_front,
+                    name: c.full_name,
+                    party: c.party_affiliation,
                   })) || []
                 }
                 selectedChoiceType={
@@ -416,8 +416,8 @@ export const VoterBallotBoothPage: React.FC = () => {
                     handleSelectCandidate(
                       targetContest.contest_id,
                       cand.id,
-                      cand.name,
-                      cand.party_or_front
+                      cand.full_name,
+                      cand.party_affiliation
                     );
                   }
                 }}
@@ -510,8 +510,8 @@ export const VoterBallotBoothPage: React.FC = () => {
                               handleSelectCandidate(
                                 contest.contest_id,
                                 cand.id,
-                                cand.name,
-                                cand.party_or_front
+                                cand.full_name,
+                                cand.party_affiliation
                               )
                             }
                             className={`p-3 rounded-lg border text-left transition-all flex items-start space-x-3 ${
@@ -525,11 +525,11 @@ export const VoterBallotBoothPage: React.FC = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                               <span className="block text-xs font-bold text-stone-900 truncate">
-                                {cand.name}
+                                {cand.full_name}
                               </span>
-                              {cand.party_or_front && (
+                              {cand.party_affiliation && (
                                 <span className="block text-2xs text-stone-500 truncate">
-                                  {cand.party_or_front}
+                                  {cand.party_affiliation}
                                 </span>
                               )}
                             </div>
@@ -711,11 +711,11 @@ export const VoterBallotBoothPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between border-b border-stone-200 pb-2">
                   <span className="text-stone-500 font-sans">Cargos Sufragados:</span>
-                  <span className="font-bold text-stone-900">{receipt.votes_count}</span>
+                  <span className="font-bold text-stone-900">{receipt.contests_count}</span>
                 </div>
                 <div className="flex justify-between border-b border-stone-200 pb-2">
                   <span className="text-stone-500 font-sans">Timestamp Truncado:</span>
-                  <span className="text-stone-800">{formatElectoralDateTime(receipt.cast_at)}</span>
+                  <span className="text-stone-800">{formatElectoralDateTime(receipt.cast_at_minute)}</span>
                 </div>
                 <div className="space-y-1 pt-1">
                   <span className="text-stone-500 font-sans block text-2xs">
@@ -773,12 +773,12 @@ export const VoterBallotBoothPage: React.FC = () => {
                     <span>Verificación Pública Exitosa</span>
                   </div>
                   <p className="text-emerald-800 font-mono text-2xs">
-                    {verificationResult.message}
+                    {verificationResult.message || (verificationResult.found ? 'El comprobante figura en la urna y la cadena de hashes está íntegra.' : 'Comprobante no encontrado en la urna.')}
                   </p>
                   <div className="text-2xs text-emerald-900 space-y-0.5 font-mono">
                     <div>Urna: <strong>{verificationResult.election_name}</strong></div>
                     <div>Minuto Registrado: <strong>{verificationResult.cast_at_minute}</strong></div>
-                    <div>Votos Conciliados en Papeleta: <strong>{verificationResult.total_votes_in_ballot}</strong></div>
+                    <div>Votos Conciliados en Papeleta: <strong>{verificationResult.contests_recorded ?? verificationResult.total_votes_in_ballot}</strong></div>
                   </div>
                 </div>
               )}

@@ -55,6 +55,8 @@ class BallotContestSectionDTO(BaseModel):
     description: str | None = None
     display_order: int
     scope_level_id: uuid.UUID
+    scope_level_name: str = ""
+    scope_level_depth: int = 0
     allow_blank: bool
     allow_null: bool
     constituency_id: uuid.UUID

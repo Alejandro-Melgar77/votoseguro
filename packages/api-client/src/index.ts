@@ -597,49 +597,62 @@ export interface VoterLoginRequest {
 
 export interface VoterSessionInfo {
   id: string;
-  election_id: string;
+  document_id: string;
+  full_name: string;
   group_id: string;
   group_name: string;
   node_id: string;
   node_name: string;
   node_path: string;
-  document_id: string;
-  full_name: string;
+}
+
+export interface VoterElectionInfo {
+  id: string;
+  name: string;
+  voting_closes_at: string;
 }
 
 export interface VoterSessionResponse {
   access_token: string;
   token_type: string;
-  expires_in: number;
   voter: VoterSessionInfo;
+  election: VoterElectionInfo;
 }
 
 export interface CandidateBallotItem {
   id: string;
-  name: string;
-  party_or_front?: string | null;
-  photo_url?: string | null;
+  full_name: string;
+  ballot_number?: number | null;
   ballot_order: number;
+  party_affiliation?: string | null;
+  party_color?: string | null;
+  photo_url?: string | null;
 }
 
 export interface ContestBallotItem {
   contest_id: string;
   contest_name: string;
+  contest_code: string;
   description?: string | null;
-  scope_level_depth: number;
+  display_order: number;
+  scope_level_id: string;
   scope_level_name: string;
-  constituency_id: string;
-  node_name: string;
+  scope_level_depth: number;
   allow_blank: boolean;
   allow_null: boolean;
+  constituency_id: string;
+  node_id: string;
+  node_name: string;
+  node_path: string;
   candidates: CandidateBallotItem[];
 }
 
 export interface AutomaticBallotResponse {
   election_id: string;
   election_name: string;
-  voter: VoterSessionInfo;
+  voter_profile: VoterSessionInfo;
   contests: ContestBallotItem[];
+  voting_closes_at: string;
 }
 
 export interface VoteSelectionItem {
@@ -650,16 +663,17 @@ export interface VoteSelectionItem {
 }
 
 export interface CastBallotRequest {
-  votes: VoteSelectionItem[];
+  selections: VoteSelectionItem[];
 }
 
 export interface CastReceiptResponse {
   receipt_hash: string;
-  cast_at: string;
+  election_id: string;
   election_name: string;
-  votes_count: number;
-  verification_url: string;
-  verification_code: string;
+  cast_at_minute: string;
+  contests_count: number;
+  nonce: string;
+  status: string;
 }
 
 export interface ReceiptChainProofItem {
@@ -686,14 +700,15 @@ export interface ReceiptVerificationResponse {
 
 export interface CredentialDispatchItem {
   voter_id: string;
-  full_name: string;
   document_id: string;
+  full_name: string;
   group_name: string;
+  node_name: string;
   node_path: string;
-  credential_code: string;
+  credential_code: string | null;
   issued_at: string;
-  expires_at: string;
-  is_used: boolean;
+  used: boolean;
+  used_at?: string | null;
 }
 
 export interface CredentialsDispatchResponse {

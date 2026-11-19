@@ -1,7 +1,7 @@
 """
 Servicio de Negocio para Cabina de Votación, Papeleta Automática y Emisión Atómica (S1-09)
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import secrets
 import uuid
 from sqlalchemy import func, select
@@ -32,7 +32,7 @@ from app.crypto.shamir import (
 )
 from app.crypto.vote_codec import default_vote_codec, PlaintextVoteCodec
 from app.db.models.election import Election, ElectionStatus, ElectoralTrusteeShare
-from app.db.models.structure import Candidate, Constituency, Contest, UnitNode, VoterGroup
+from app.db.models.structure import Candidate, Constituency, Contest, HierarchyLevel, UnitNode, VoterGroup
 from app.db.models.voter import Voter, VoterStatus
 from app.db.models.voting import Vote, VoteChoiceType, VoterParticipation, VotingCredential
 from app.modules.audit.service import AuditService
@@ -58,6 +58,11 @@ def generate_credential_code() -> str:
     p2 = "".join(secrets.choice(alphabet) for _ in range(4))
     p3 = "".join(secrets.choice(alphabet) for _ in range(4))
     return f"VS-{p1}-{p2}-{p3}"
+
+
+async def _election_groups(db: AsyncSession, election_id: uuid.UUID) -> list[VoterGroup]:
+    stmt = select(VoterGroup).where(VoterGroup.election_id == election_id)
+    return list((await db.execute(stmt)).scalars().all())
 
 
 class BallotService:
@@ -120,10 +125,32 @@ class BallotService:
         if not election:
             raise NotFoundException("Elección no encontrada en su institución.")
 
+        if election.status in (ElectionStatus.VOTING_CLOSED, ElectionStatus.TALLIED, ElectionStatus.CANCELLED):
+            raise ConflictException(
+                f"No se puede abrir la votación en el estado actual: {election.status.value}"
+            )
+
         # Si aún estaba en REGISTRATION_OPEN, congelar primero
         if election.status == ElectionStatus.REGISTRATION_OPEN:
             from app.modules.registration.service import RegistrationService
             await RegistrationService.compute_and_freeze_roll_hash(db, election, db_now, tenant)
+
+        # Apertura inmediata: alinear el cronograma con el instante actual para que
+        # la validación de horario (login, papeleta y emisión) acepte la sesión.
+        db_now = ensure_utc(db_now)
+        if ensure_utc(election.voting_opens_at) > db_now:
+            if ensure_utc(election.registration_closes_at) > db_now:
+                if ensure_utc(election.registration_opens_at) >= db_now:
+                    election.registration_opens_at = db_now - timedelta(minutes=1)
+                election.registration_closes_at = db_now
+            election.voting_opens_at = db_now
+        if ensure_utc(election.voting_closes_at) <= db_now:
+            election.voting_closes_at = db_now + timedelta(days=1)
+        for group in await _election_groups(db, election.id):
+            if group.voting_opens_at and ensure_utc(group.voting_opens_at) > db_now:
+                group.voting_opens_at = db_now
+            if group.voting_closes_at and ensure_utc(group.voting_closes_at) <= db_now:
+                group.voting_closes_at = election.voting_closes_at
 
         election.status = ElectionStatus.VOTING_OPEN
         election.updated_at = db_now
@@ -363,6 +390,13 @@ class BallotService:
         )
         contests = (await db.execute(stmt_contests)).scalars().all()
 
+        levels_by_id = {
+            lvl.id: lvl
+            for lvl in (
+                await db.execute(select(HierarchyLevel).where(HierarchyLevel.group_id == voter.group_id))
+            ).scalars().all()
+        }
+
         contest_sections: list[BallotContestSectionDTO] = []
         for contest in contests:
             # Encontrar el nodo ancestro que corresponde al scope_level_id del cargo
@@ -409,6 +443,8 @@ class BallotService:
                     description=contest.description,
                     display_order=contest.display_order,
                     scope_level_id=contest.scope_level_id,
+                    scope_level_name=levels_by_id[contest.scope_level_id].name if contest.scope_level_id in levels_by_id else "",
+                    scope_level_depth=levels_by_id[contest.scope_level_id].depth if contest.scope_level_id in levels_by_id else 0,
                     allow_blank=contest.allow_blank,
                     allow_null=contest.allow_null,
                     constituency_id=constituency.id,

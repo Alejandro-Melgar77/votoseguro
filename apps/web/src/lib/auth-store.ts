@@ -78,5 +78,6 @@ export function useAuth() {
     isPlatformAdmin: state.user?.role === 'PLATFORM_ADMIN',
     isAdminGeneral: state.user?.role === 'ADMIN_GENERAL',
     isAdminSegment: state.user?.role === 'ADMIN_SEGMENT',
+    isObserver: state.user?.role === 'OBSERVER',
   };
 }

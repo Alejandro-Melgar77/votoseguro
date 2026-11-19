@@ -29,7 +29,7 @@ export const InstitutionalShell: React.FC<InstitutionalShellProps> = ({
   activeElectionId,
   timezone,
 }) => {
-  const { user, isPlatformAdmin, logout } = useAuth();
+  const { user, isPlatformAdmin, isObserver, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -102,6 +102,8 @@ export const InstitutionalShell: React.FC<InstitutionalShellProps> = ({
                     <div className="px-3 pt-4 pb-1 text-[10px] font-mono tracking-wider text-stone-400 uppercase">
                       Control Electoral
                     </div>
+                    {!isObserver && (
+                      <>
                     <Link
                       to={`/elections/${activeElectionId}/structure`}
                       className={`flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
@@ -161,6 +163,9 @@ export const InstitutionalShell: React.FC<InstitutionalShellProps> = ({
                       <Users className="w-4 h-4 text-seal-emerald" />
                       <span>Administradores Delegados</span>
                     </Link>
+
+                      </>
+                    )}
 
                     <Link
                       to={`/elections/${activeElectionId}/live`}

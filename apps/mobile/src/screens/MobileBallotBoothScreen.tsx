@@ -132,7 +132,7 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
       case 'READ_BALLOT':
         if (currentContest) {
           const candList = currentContest.candidates
-            .map((c, i) => `Opción ${i + 1}: ${c.name}, ${c.party_or_front || 'Independiente'}`)
+            .map((c, i) => `Opción ${i + 1}: ${c.full_name}, ${c.party_affiliation || 'Independiente'}`)
             .join('. ');
           speak(
             `Cargo actual: ${currentContest.contest_name}. Candidatos: ${candList}. También puede decir "voto en blanco" o "voto nulo".`
@@ -149,12 +149,12 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
               [currentContest.contest_id]: {
                 choiceType: 'CANDIDATE',
                 candidateId: cand.id,
-                candidateName: cand.name,
+                candidateName: cand.full_name,
                 candidateNumber: parsed.candidateNumber,
               },
             }));
             speak(
-              `Ha seleccionado al candidato número ${parsed.candidateNumber}: ${cand.name}. Diga "siguiente cargo" o "emitir voto" cuando termine.`
+              `Ha seleccionado al candidato número ${parsed.candidateNumber}: ${cand.full_name}. Diga "siguiente cargo" o "emitir voto" cuando termine.`
             );
           }
         }
@@ -268,13 +268,13 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
       [contestId]: {
         choiceType: 'CANDIDATE',
         candidateId: candidate.id,
-        candidateName: candidate.name,
+        candidateName: candidate.full_name,
         candidateNumber: order,
       },
     }));
 
     if (voiceModeActive) {
-      speak(`Seleccionado: ${candidate.name}`);
+      speak(`Seleccionado: ${candidate.full_name}`);
     }
   };
 
@@ -360,7 +360,7 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
 
     try {
       const res = await mobileApi.post<CastReceiptResponse>('/ballot/cast', {
-        votes: votesPayload,
+        selections: votesPayload,
       });
 
       setReceipt(res);
@@ -369,7 +369,7 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
 
       if (voiceModeActive) {
         speak(
-          `Su voto ha sido emitido y sellado en la urna criptográfica con éxito. Código de comprobante: ${res.verification_code}.`
+          `Su voto ha sido emitido y sellado en la urna criptográfica con éxito. Código de comprobante: ${res.receipt_hash.slice(0, 12).toUpperCase()}.`
         );
       }
     } catch (err: any) {
@@ -528,9 +528,9 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
           <View style={styles.ballotHeaderCard}>
             <Text style={styles.electionTitle}>{ballot.election_name}</Text>
             <Text style={styles.voterEstamento}>
-              Elector: {ballot.voter.full_name} • {ballot.voter.group_name}
+              Elector: {ballot.voter_profile.full_name} • {ballot.voter_profile.group_name}
             </Text>
-            <Text style={styles.nodePath}>Mesa / Nodo: {ballot.voter.node_path}</Text>
+            <Text style={styles.nodePath}>Mesa / Nodo: {ballot.voter_profile.node_path}</Text>
           </View>
 
           {/* Barra de Accesibilidad por Voz (IA-L4) */}
@@ -672,10 +672,10 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
 
                     <View style={styles.candidateInfo}>
                       <Text style={[styles.candidateName, selected && styles.candidateNameSelected]}>
-                        {cand.name}
+                        {cand.full_name}
                       </Text>
                       <Text style={styles.candidateParty}>
-                        {cand.party_or_front || 'Candidatura Independiente'}
+                        {cand.party_affiliation || 'Candidatura Independiente'}
                       </Text>
                     </View>
 
@@ -883,7 +883,7 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
 
             <View style={styles.receiptFieldGroup}>
               <Text style={styles.receiptFieldLabel}>Código de Verificación:</Text>
-              <Text style={styles.receiptCodeValue}>{receipt.verification_code}</Text>
+              <Text style={styles.receiptCodeValue}>{receipt.receipt_hash.slice(0, 12).toUpperCase()}</Text>
             </View>
 
             <View style={styles.receiptFieldGroup}>
@@ -894,13 +894,13 @@ export const MobileBallotBoothScreen: React.FC<MobileBallotBoothScreenProps> = (
             <View style={styles.receiptFieldGroup}>
               <Text style={styles.receiptFieldLabel}>Fecha y Hora de Emisión:</Text>
               <Text style={styles.receiptDateValue}>
-                {new Date(receipt.cast_at).toLocaleString('es-BO')}
+                {new Date(receipt.cast_at_minute).toLocaleString('es-BO')}
               </Text>
             </View>
 
             <View style={styles.receiptFieldGroup}>
               <Text style={styles.receiptFieldLabel}>Cargos Sufragados:</Text>
-              <Text style={styles.receiptDateValue}>{receipt.votes_count} cargos registrados</Text>
+              <Text style={styles.receiptDateValue}>{receipt.contests_count} cargos registrados</Text>
             </View>
 
             <View style={styles.receiptNotice}>

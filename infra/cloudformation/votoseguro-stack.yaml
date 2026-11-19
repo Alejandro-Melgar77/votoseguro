@@ -129,203 +129,61 @@ Resources:
           exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
           echo "=== INICIANDO DESPLIEGUE VOTOSEGURO (RAMA ${GithubBranch}) ==="
 
-          # 1. Configurar 2GB de memoria Swap para estabilidad en t3.micro
+          # 1. Swap de 2 GB para estabilidad en t3.micro
           if [ ! -f /swapfile ]; then
               dd if=/dev/zero of=/swapfile bs=128M count=16
-              chmod 600 /swapfile
-              mkswap /swapfile
-              swapon /swapfile
+              chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
               echo '/swapfile swap swap defaults 0 0' >> /etc/fstab
-              echo "Memoria Swap de 2GB activada exitosamente."
           fi
 
-          # 2. Instalar paquetes necesarios
-          dnf update -y
+          # 2. Paquetes y Docker Compose
           dnf install -y git docker nginx openssl awscli
           systemctl enable --now docker
-          usermod -aG docker ec2-user
-
-          # 3. Instalar Docker Compose CLI plugin
           mkdir -p /usr/local/lib/docker/cli-plugins
           curl -sSL https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
           chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-          ln -sf /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
+          sed -i 's/listen       80 default_server;/listen       8088 default_server;/; s/listen       \[::\]:80 default_server;/listen       [::]:8088 default_server;/' /etc/nginx/nginx.conf || true
+          systemctl enable --now nginx
 
-          # 4. Generar certificado SSL autofirmado para HTTPS
-          mkdir -p /etc/nginx/ssl
-          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-              -keyout /etc/nginx/ssl/votoseguro.key \
-              -out /etc/nginx/ssl/votoseguro.crt \
-              -subj "/C=BO/ST=SantaCruz/L=SantaCruz/O=UAGRM/OU=FICCT/CN=votoseguro"
-
-          # 5. Descargar frontend web compilado desde S3
-          mkdir -p /var/www/votoseguro/web
-          for i in {1..40}; do
-              if aws s3 sync s3://${WebBucket} /var/www/votoseguro/web --region ${AWS::Region} && [ -f /var/www/votoseguro/web/index.html ]; then
-                  echo "Frontend web descargado exitosamente de S3."
-                  break
-              fi
-              echo "Esperando activos de frontend en S3... (intento $i)"
-              sleep 5
-          done
-
-          # 6. Clonar el repositorio desde la rama JERS
+          # 3. Código fuente desde la rama de GitHub
           mkdir -p /opt/votoseguro
           git clone -b ${GithubBranch} ${GithubRepoUrl} /opt/votoseguro/app
-          cd /opt/votoseguro/app
 
-          # Si por alguna razon S3 no tenia el frontend, usar el de la app o enlace simbolico
-          if [ ! -f /var/www/votoseguro/web/index.html ] && [ -d /opt/votoseguro/app/apps/web/dist ]; then
-              cp -r /opt/votoseguro/app/apps/web/dist/* /var/www/votoseguro/web/
+          # 4. Secretos generados en la instancia (nunca en el repositorio)
+          if [ ! -f /opt/votoseguro/.env ]; then
+              umask 077
+              {
+                echo "POSTGRES_USER=votoseguro"
+                echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
+                echo "POSTGRES_DB=votoseguro_db"
+                echo "SECRET_KEY=$(openssl rand -hex 32)"
+                echo "NULLIFIER_SECRET=$(openssl rand -hex 32)"
+                echo "PLATFORM_ADMIN_EMAIL=admin@votoseguro.org"
+                echo "PLATFORM_ADMIN_PASSWORD=AdminPlatform2026!"
+                echo "AI_LOCAL_ENABLED=false"
+                echo "AI_EXTERNAL_ENABLED=false"
+              } > /opt/votoseguro/.env
           fi
 
-          # 7. Configurar Nginx para servir el Frontend SPA y hacer Proxy a la API
-          cat << 'EOF_NGINX' > /etc/nginx/conf.d/votoseguro.conf
-          server {
-              listen 80 default_server;
-              listen 443 ssl default_server;
-              server_name _;
+          # 5. Esperar el frontend en S3 (lo sube scripts/deploy_aws_free_tier.py)
+          for i in $(seq 1 60); do
+              aws s3 ls s3://${WebBucket}/index.html --region ${AWS::Region} >/dev/null 2>&1 && break
+              sleep 10
+          done
 
-              ssl_certificate /etc/nginx/ssl/votoseguro.crt;
-              ssl_certificate_key /etc/nginx/ssl/votoseguro.key;
-              ssl_protocols TLSv1.2 TLSv1.3;
-
-              client_max_body_size 25M;
-
-              # Frontend Web React SPA
-              root /var/www/votoseguro/web;
-              index index.html;
-
-              location / {
-                  try_files $uri $uri/ /index.html;
-              }
-
-              # Backend FastAPI Proxy
-              location /api/ {
-                  proxy_pass http://127.0.0.1:8000/api/;
-                  proxy_set_header Host $host;
-                  proxy_set_header X-Real-IP $remote_addr;
-                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                  proxy_set_header X-Forwarded-Proto $scheme;
-                  proxy_http_version 1.1;
-                  proxy_set_header Upgrade $http_upgrade;
-                  proxy_set_header Connection "upgrade";
-                  proxy_read_timeout 300s;
-                  proxy_connect_timeout 75s;
-              }
-
-              location /docs {
-                  proxy_pass http://127.0.0.1:8000/docs;
-                  proxy_set_header Host $host;
-              }
-
-              location /openapi.json {
-                  proxy_pass http://127.0.0.1:8000/openapi.json;
-                  proxy_set_header Host $host;
-              }
-
-              location /health {
-                  proxy_pass http://127.0.0.1:8000/api/v1/health;
-                  proxy_set_header Host $host;
-              }
-          }
-          EOF_NGINX
-
-          sed -i 's/listen       80 default_server;/listen       8088 default_server;/' /etc/nginx/nginx.conf || true
-          systemctl enable --now nginx
-          systemctl restart nginx
-
-          # 8. Generar archivo docker-compose.prod.yml
-          cat << 'EOF_COMPOSE' > /opt/votoseguro/app/docker-compose.prod.yml
-          version: '3.8'
-
-          services:
-            postgres:
-              image: postgres:16-alpine
-              container_name: votoseguro-postgres
-              restart: always
-              environment:
-                POSTGRES_USER: votoseguro
-                POSTGRES_PASSWORD: votoseguro_prod_db_pwd_2026!
-                POSTGRES_DB: votoseguro_db
-              ports:
-                - "127.0.0.1:5432:5432"
-              volumes:
-                - pgdata:/var/lib/postgresql/data
-              healthcheck:
-                test: ["CMD-SHELL", "pg_isready -U votoseguro -d votoseguro_db"]
-                interval: 5s
-                timeout: 5s
-                retries: 5
-
-            api:
-              build:
-                context: ./apps/api
-                dockerfile: Dockerfile
-              container_name: votoseguro-api
-              restart: always
-              depends_on:
-                postgres:
-                  condition: service_healthy
-              environment:
-                DATABASE_URL: postgresql+asyncpg://votoseguro:votoseguro_prod_db_pwd_2026!@postgres:5432/votoseguro_db
-                SYNC_DATABASE_URL: postgresql+psycopg://votoseguro:votoseguro_prod_db_pwd_2026!@postgres:5432/votoseguro_db
-                ENVIRONMENT: staging
-                DEBUG: "true"
-                SECRET_KEY: prod_jwt_secret_key_minimum_32_characters_long_jers_2026!
-                NULLIFIER_SECRET: prod_nullifier_secret_key_minimum_32_chars_jers_2026!
-                RUN_EMBEDDED_SCHEDULER: "true"
-                PLATFORM_ADMIN_EMAIL: admin@votoseguro.org
-                PLATFORM_ADMIN_PASSWORD: AdminPlatform2026!
-                CORS_ORIGINS: "*"
-                AI_LOCAL_ENABLED: "false"
-                AI_EXTERNAL_ENABLED: "false"
-              ports:
-                - "127.0.0.1:8000:8000"
-              command: >
-                sh -c "alembic upgrade head &&
-                       python -m app.db.seed_demo &&
-                       uvicorn app.main:app --host 0.0.0.0 --port 8000"
-
-          volumes:
-            pgdata:
-          EOF_COMPOSE
-
-          # 9. Iniciar los contenedores Docker
-          cd /opt/votoseguro/app
-          docker compose -f docker-compose.prod.yml up -d --build
-
-          # 10. Script para actualizar ante nuevos cambios en JERS
-          cat << 'EOF_UPDATE' > /opt/votoseguro/update.sh
-          #!/bin/bash
-          set -e
-          cd /opt/votoseguro/app
-          git fetch origin JERS
-          git reset --hard origin/JERS
-          aws s3 sync s3://${WebBucket} /var/www/votoseguro/web --region ${AWS::Region} || true
-          docker compose -f docker-compose.prod.yml up -d --build
-          echo "VotoSeguro actualizado a la ultima version de JERS"
-          EOF_UPDATE
-          chmod +x /opt/votoseguro/update.sh
-
-          echo "VOTOSEGURO_DESPLIEGUE_COMPLETADO $(date)" > /opt/votoseguro/status.txt
-          echo "=== DESPLIEGUE FINALIZADO EXITOSAMENTE ==="
+          # 6. API, frontend y HTTPS (Let's Encrypt en <ip>.sslip.io)
+          BRANCH=${GithubBranch} WEB_BUCKET=${WebBucket} AWS_REGION=${AWS::Region} bash /opt/votoseguro/app/infra/aws/server/update.sh
+          echo "=== DESPLIEGUE FINALIZADO ==="
 
 Outputs:
-  WebUrlHttp:
-    Description: 'URL Web y API de VotoSeguro (HTTP)'
-    Value: !Sub 'http://${EC2Instance.PublicDnsName}'
-  WebUrlIp:
-    Description: 'URL Directa por IP'
-    Value: !Sub 'http://${EC2Instance.PublicIp}'
-  WebUrlHttps:
-    Description: 'URL Web y API de VotoSeguro (HTTPS SSL Autofirmado)'
-    Value: !Sub 'https://${EC2Instance.PublicDnsName}'
+  WebUrl:
+    Description: 'URL unica de VotoSeguro (HTTPS con Lets Encrypt)'
+    Value: !Join ['', ['https://', !Join ['-', !Split ['.', !GetAtt EC2Instance.PublicIp]], '.sslip.io']]
   EC2PublicIp:
-    Description: 'IP Publica del Servidor Backend EC2'
+    Description: 'IP Publica del Servidor EC2'
     Value: !GetAtt EC2Instance.PublicIp
   EC2PublicDns:
-    Description: 'DNS Publico del Servidor Backend EC2'
+    Description: 'DNS Publico del Servidor EC2'
     Value: !GetAtt EC2Instance.PublicDnsName
   WebBucketName:
     Description: 'Nombre del Bucket S3 del Frontend'

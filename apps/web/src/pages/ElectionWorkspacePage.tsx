@@ -23,7 +23,7 @@ import type { Election, ElectionCreateRequest } from '@votoseguro/api-client';
 import { formatElectoralDateTime } from '@/lib/timezone';
 
 export const ElectionWorkspacePage: React.FC = () => {
-  const { organization, isAdminGeneral } = useAuth();
+  const { organization, isAdminGeneral, isObserver } = useAuth();
   const [elections, setElections] = useState<Election[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +162,32 @@ export const ElectionWorkspacePage: React.FC = () => {
                 </div>
               </div>
 
+                {isObserver ? (
+                <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-stone-100 text-2xs font-semibold">
+                  <Link
+                    to={`/elections/${election.id}/live`}
+                    className="p-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 hover:border-civic-navy-900/30 text-stone-700 flex items-center space-x-1 transition-colors"
+                  >
+                    <Clock className="w-3.5 h-3.5 text-seal-emerald shrink-0" />
+                    <span className="truncate">Monitoreo</span>
+                  </Link>
+                  <Link
+                    to={`/elections/${election.id}/results`}
+                    className="p-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 hover:border-civic-navy-900/30 text-stone-700 flex items-center space-x-1 transition-colors"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-seal-amber shrink-0" />
+                    <span className="truncate">Resultados</span>
+                  </Link>
+                  <Link
+                    to={`/elections/${election.id}/integrity`}
+                    className="p-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 hover:border-civic-navy-900/30 text-stone-700 flex items-center space-x-1 transition-colors"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span className="truncate">Integridad</span>
+                  </Link>
+                </div>
+                ) : (
+                <>
                 {/* Accesos Rápidos Modulares */}
                 <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-stone-100 text-2xs font-semibold">
                   <Link
@@ -216,6 +242,8 @@ export const ElectionWorkspacePage: React.FC = () => {
                   <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
                 </Link>
               </div>
+                </>
+                )}
             </div>
           ))}
 

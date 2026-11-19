@@ -80,6 +80,20 @@ async def seed_gran_estudio(session: AsyncSession) -> dict[str, str]:
         session.add(delegado)
         await session.flush()
 
+    stmt_obs = select(User).where(User.email == "observador@granestudio.edu.bo")
+    if not (await session.execute(stmt_obs)).scalar_one_or_none():
+        session.add(
+            User(
+                organization_id=org.id,
+                email="observador@granestudio.edu.bo",
+                full_name="Carlos Votante (Observador Electoral)",
+                password_hash=get_password_hash("UsuarioComun2026!"),
+                role=UserRole.OBSERVER,
+                status=UserStatus.ACTIVE,
+            )
+        )
+        await session.flush()
+
     # 3. Elección
     stmt_el = select(Election).where(
         Election.organization_id == org.id,
