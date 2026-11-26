@@ -258,11 +258,13 @@ OFFICIAL_KB_CHUNKS: List[dict[str, Any]] = [
 ]
 
 _STOPWORDS = {
+    "de", "en", "la", "el", "mi", "su", "tu", "un", "al", "lo", "se", "es",
+    "si", "no", "ya", "me", "te", "le", "os", "ni", "ha", "va", "ir",
     "como", "puedo", "hacer", "quiero", "tengo", "para", "donde", "cual", "cuales",
     "quien", "cuando", "sobre", "entre", "desde", "hasta", "esta", "este", "esto",
-    "esos", "esas", "algo", "unos", "unas", "unos", "pero", "porque", "por", "con",
+    "esos", "esas", "algo", "unos", "unas", "pero", "porque", "por", "con",
     "sin", "del", "las", "los", "una", "uno", "que", "soy", "hay", "son", "ser",
-    "esta", "estoy", "hago", "hacen", "debo", "debe", "mas", "muy", "esa", "ese",
+    "estoy", "hago", "hacen", "debo", "debe", "mas", "muy", "esa", "ese",
     "sistema", "plataforma", "pagina", "web", "app", "votoseguro",
 }
 

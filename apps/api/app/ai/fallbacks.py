@@ -442,7 +442,9 @@ def fallback_answer_rag(
 
     # Construir respuesta extractiva limpia fundamentada en los mejores chunks
     citations = []
-    for c in top_chunks[:2]:
+    for c in top_chunks[:3]:
+        if float(c.get("score", 0.0)) < min_score_threshold:
+            continue
         doc_id = str(c.get("doc_id", "DOC-01"))
         title = str(c.get("title", "Manual Oficial VotoSeguro"))
         content = str(c.get("content", ""))
