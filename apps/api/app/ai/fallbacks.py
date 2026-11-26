@@ -403,7 +403,7 @@ def check_rag_guardrails(question: str) -> Optional[RagAssistantResponse]:
 def fallback_answer_rag(
     question: str,
     top_chunks: List[dict[str, Any]],
-    min_score_threshold: float = 0.16,
+    min_score_threshold: float = 0.22,
 ) -> RagAssistantResponse:
     guardrail_hit = check_rag_guardrails(question)
     if guardrail_hit is not None:

@@ -387,10 +387,10 @@ def is_followup_query(query: str) -> bool:
 def _token_matches(q_tok: str, target_tokens: List[str]) -> bool:
     if q_tok in target_tokens:
         return True
-    if len(q_tok) >= 4:
-        prefix = q_tok[:5] if len(q_tok) >= 5 else q_tok[:4]
+    if len(q_tok) >= 5:
+        prefix = q_tok[:5]
         for t in target_tokens:
-            if len(t) >= 4 and (t.startswith(prefix) or q_tok.startswith(t[:4])):
+            if len(t) >= 5 and abs(len(t) - len(q_tok)) <= 5 and (t.startswith(prefix) or q_tok.startswith(t[:5])):
                 return True
     return False
 
@@ -410,7 +410,11 @@ def retrieve_relevant_chunks(
     if not query_tokens:
         return []
 
+    q_norm = _normalize_text(query)
     inferred_roles = detect_query_roles(query, default_role=context_role)
+    is_howto_vote = any(
+        p in q_norm for p in ["hacer mi voto", "quiero votar", "como voto", "como boto", "emitir mi voto", "como votar"]
+    )
     scored_chunks: List[Tuple[float, dict[str, Any]]] = []
 
     for chunk in OFFICIAL_KB_CHUNKS:
@@ -444,7 +448,9 @@ def retrieve_relevant_chunks(
 
         audience = chunk.get("audience")
         if audience in inferred_roles or audience == "PUBLIC":
-            normalized_score *= 1.2
+            normalized_score *= 1.15
+        if is_howto_vote and chunk["doc_id"] == "DOC-13":
+            normalized_score *= 1.35
 
         scored_chunks.append((
             min(normalized_score, 1.0),
