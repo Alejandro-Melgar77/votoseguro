@@ -1,5 +1,13 @@
 # Despliegue en AWS (capa gratuita) — rama `JERS`
 
+> **AVISO: este documento describe un despliegue anterior. Sus direcciones y credenciales de prueba NO corresponden al AWS actual.**
+>
+> Acceso vigente: **https://votoseguro-3-239-171-45.sslip.io/login**. El usuario inicial es `admin@votoseguro.org`, con la contraseña privada guardada en SSM (`/votoseguro/JERS/admin-password`), no la contraseña pública de ejemplo de este documento. La configuración actual se explica en [AWS_JERS.md](AWS_JERS.md).
+>
+> `https://votoseguro.pages.dev` sigue apuntando a la API anterior de Render y no comparte las cuentas de AWS. Los usuarios y votantes demo que aparecen debajo pertenecen al despliegue histórico; no prueban la existencia de esas cuentas en el servidor actual.
+
+## Registro histórico — no usar estas instrucciones para el AWS actual
+
 ## 1. URL única
 
 **https://32-197-219-229.sslip.io**
@@ -24,7 +32,7 @@ redirige automáticamente a esa URL.
 > distribuciones. Si la IP del EC2 cambia (detener e iniciar la instancia), la URL cambia a
 > `<nueva-ip-con-guiones>.sslip.io` y `update.sh` emite el certificado nuevo solo.
 
-## 2. Usuarios de prueba
+## 2. Usuarios de prueba históricos — no válidos para el AWS actual
 
 | Rol | Correo | Contraseña |
 |---|---|---|
