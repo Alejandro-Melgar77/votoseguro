@@ -328,32 +328,52 @@ def fallback_extract_id_card(raw_ocr_text: str) -> IdCardExtractionResponse:
 _POLITICAL_INTENT_KEYWORDS = [
     "por quien votar",
     "por quien voto",
+    "por quien deberia votar",
     "candidato me recomiendas",
+    "mejor candidato",
     "quien deberia ganar",
     "quien va ganando",
-    "partido",
+    "quien ganara",
+    "encuesta",
+    "prediccion",
+    "partido politico",
     "favorito",
     "rector preferido",
     "propuesta politica",
     "deberia votar por",
 ]
 
+_SENSITIVE_DATA_KEYWORDS = [
+    "contrasena de",
+    "password de",
+    "clave privada",
+    "por quien voto",
+    "como voto tal",
+    "voto individual",
+    "voto de juan",
+    "voto de maria",
+    "dame los tokens",
+    "dame las credenciales",
+    "lista de correos",
+    "datos personales de",
+    "fragmento shamir de",
+]
 
-def fallback_answer_rag(
-    question: str,
-    top_chunks: List[dict[str, Any]],
-    min_score_threshold: float = 0.18,
-) -> RagAssistantResponse:
+
+def check_rag_guardrails(question: str) -> Optional[RagAssistantResponse]:
+    """
+    Evalúa salvaguardas estrictas de neutralidad política y privacidad (Invariantes #8, #9, #14).
+    Retorna RagAssistantResponse de rechazo cordial si infringe límites, o None si es válida.
+    """
     q_norm = _strip_accents(question)
 
-    # Guardrail de Neutralidad Política e Invariante de Privacidad
     if any(kw in q_norm for kw in _POLITICAL_INTENT_KEYWORDS):
         return RagAssistantResponse(
             question=question,
             answer=(
                 "No lo sé con base en los manuales oficiales de VotoSeguro. "
-                "El Asistente Electoral es estrictamente neutral y solo responde consultas operativas documentadas. "
-                "Bajo ningún concepto emite recomendaciones políticas ni información sobre preferencias de voto. "
+                "El Asistente Electoral es estrictamente neutral y solo responde consultas operativas sobre el uso del software. "
+                "Bajo ningún concepto emite recomendaciones políticas, predicciones ni preferencias de voto. "
                 "Por favor contacte a la mesa de soporte o al comité electoral institucional."
             ),
             answered_from_docs=False,
@@ -362,13 +382,40 @@ def fallback_answer_rag(
             ai_source="DETERMINISTIC_FALLBACK",
         )
 
+    if any(kw in q_norm for kw in _SENSITIVE_DATA_KEYWORDS):
+        return RagAssistantResponse(
+            question=question,
+            answer=(
+                "No lo sé con base en los manuales oficiales de VotoSeguro. "
+                "Por privacidad y seguridad criptográfica, no puedo solicitar, revelar ni consultar contraseñas, "
+                "tokens, claves privadas, datos personales ni votos individuales. "
+                "Puedo ayudarte únicamente con el uso operativo de la plataforma."
+            ),
+            answered_from_docs=False,
+            citations=[],
+            escalate_to_support=True,
+            ai_source="DETERMINISTIC_FALLBACK",
+        )
+
+    return None
+
+
+def fallback_answer_rag(
+    question: str,
+    top_chunks: List[dict[str, Any]],
+    min_score_threshold: float = 0.16,
+) -> RagAssistantResponse:
+    guardrail_hit = check_rag_guardrails(question)
+    if guardrail_hit is not None:
+        return guardrail_hit
+
     if not top_chunks:
         return RagAssistantResponse(
             question=question,
             answer=(
                 "No lo sé con base en los manuales oficiales de VotoSeguro. "
-                "No se encontró documentación oficial que responda a esta consulta operativa. "
-                "Por favor, contacte a la mesa de soporte electoral de su institución."
+                "Solo puedo ayudarte con el uso de la plataforma VotoSeguro (votación, registro, comprobantes, "
+                "operación de encargado o administración). Por favor, contacte a la mesa de soporte electoral de su institución."
             ),
             answered_from_docs=False,
             citations=[],
@@ -384,7 +431,7 @@ def fallback_answer_rag(
             question=question,
             answer=(
                 "No lo sé con base en los manuales oficiales de VotoSeguro. "
-                "La consulta no guarda suficiente relación con los procedimientos operativos documentados. "
+                "La consulta no guarda suficiente relación con el uso del software o los procedimientos documentados. "
                 "Por favor, contacte a la mesa de soporte de su institución."
             ),
             answered_from_docs=False,
@@ -395,18 +442,20 @@ def fallback_answer_rag(
 
     # Construir respuesta extractiva limpia fundamentada en los mejores chunks
     citations = []
-    excerpts_text = []
     for c in top_chunks[:2]:
         doc_id = str(c.get("doc_id", "DOC-01"))
         title = str(c.get("title", "Manual Oficial VotoSeguro"))
         content = str(c.get("content", ""))
         snippet = content[:160] + "..." if len(content) > 160 else content
         citations.append(DocumentCitation(doc_id=doc_id, title=title, excerpt=snippet))
-        excerpts_text.append(content)
+
+    secondary_note = ""
+    if len(top_chunks) > 1 and float(top_chunks[1].get("score", 0.0)) >= min_score_threshold:
+        secondary_note = f"\n\nInformación complementaria ({top_chunks[1]['doc_id']}: {top_chunks[1]['title']}):\n{top_chunks[1]['content']}"
 
     combined_summary = (
         f"Según los manuales oficiales de VotoSeguro ({citations[0].doc_id}: {citations[0].title}):\n\n"
-        f"{best_chunk.get('content')}"
+        f"{best_chunk.get('content')}{secondary_note}"
     )
 
     return RagAssistantResponse(

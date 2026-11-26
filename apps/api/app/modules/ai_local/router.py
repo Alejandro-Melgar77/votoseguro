@@ -197,6 +197,7 @@ async def ask_assistant(
         context_role=body.context_role,
         election_id=election_uuid,
         db=db,
+        history=body.history,
     )
 
 

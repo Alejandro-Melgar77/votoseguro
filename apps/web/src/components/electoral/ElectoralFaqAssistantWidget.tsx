@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react';
 import { api } from '../../lib/api';
-import { RagAssistantResponse } from '@votoseguro/api-client';
+import { AssistantConversationTurn, RagAssistantResponse } from '@votoseguro/api-client';
 import { AiEngineTelemetryBadge } from './AiEngineTelemetryBadge';
 
 interface ElectoralFaqAssistantWidgetProps {
@@ -29,6 +29,7 @@ export const ElectoralFaqAssistantWidget: React.FC<ElectoralFaqAssistantWidgetPr
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<RagAssistantResponse | null>(null);
+  const [history, setHistory] = useState<AssistantConversationTurn[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Invariante de Privacidad (Sección 7.3): Desmontar si el votante está en el paso de votación
@@ -36,21 +37,40 @@ export const ElectoralFaqAssistantWidget: React.FC<ElectoralFaqAssistantWidgetPr
     return null;
   }
 
+  const inferContextRole = (): 'VOTER' | 'ADMIN' | 'OPERATOR' | 'PUBLIC' => {
+    if (typeof window === 'undefined') return 'VOTER';
+    const path = window.location.pathname;
+    if (path.startsWith('/platform') || path.startsWith('/workspace') || path.startsWith('/elections/')) {
+      return 'ADMIN';
+    }
+    if (path.startsWith('/audit-portal')) {
+      return 'PUBLIC';
+    }
+    return 'VOTER';
+  };
+
   const handleAsk = async (questionToAsk: string) => {
     const q = questionToAsk.trim();
     if (!q) return;
 
-    setQuery(q);
+    setQuery('');
     setLoading(true);
     setError(null);
 
     try {
+      const recentHistory = history.slice(-8);
       const res = await api.post<RagAssistantResponse>('/ai/assistant/ask', {
         question: q,
-        context_role: 'VOTER',
+        context_role: inferContextRole(),
         election_id: electionId || null,
+        history: recentHistory,
       });
       setResponse(res);
+      setHistory((prev) => [
+        ...prev.slice(-6),
+        { role: 'user', content: q },
+        { role: 'assistant', content: res.answer },
+      ]);
     } catch (err: any) {
       setError(err.message || 'Error consultando al Asistente Electoral.');
     } finally {
@@ -100,14 +120,6 @@ export const ElectoralFaqAssistantWidget: React.FC<ElectoralFaqAssistantWidgetPr
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 leading-relaxed text-[11px]">
               <strong>💡 Asistente Estrictamente Documental:</strong> Responde exclusivamente con base en los
               manuales y procedimientos auditados de VotoSeguro. No emite opiniones políticas ni predicciones.
-              <div className="mt-2">
-                <button
-                  type="button"
-                  className="px-3 py-1.5 rounded-lg bg-[#0B132B] hover:bg-slate-800 text-white text-xs font-semibold transition-colors"
-                >
-                  Agente
-                </button>
-              </div>
             </div>
 
             {/* Preguntas Frecuentes Rápidas */}

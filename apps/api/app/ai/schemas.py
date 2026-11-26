@@ -149,14 +149,24 @@ class DocumentCitation(BaseModel):
     excerpt: str
 
 
+class AssistantConversationTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., min_length=1, max_length=2000)
+
+
 class RagAssistantRequest(BaseModel):
     question: str = Field(
         ...,
-        min_length=3,
-        description="Consulta del votante o administrador."
+        min_length=1,
+        description="Consulta en lenguaje natural del votante, encargado o administrador."
     )
-    context_role: Literal["VOTER", "ADMIN", "PUBLIC"] = "VOTER"
+    context_role: Literal["VOTER", "ADMIN", "OPERATOR", "PUBLIC"] = "VOTER"
     election_id: Optional[str] = None
+    history: List[AssistantConversationTurn] = Field(
+        default_factory=list,
+        max_length=12,
+        description="Historial reciente de la conversación activa para repreguntas."
+    )
 
 
 class RagAssistantResponse(BaseModel):

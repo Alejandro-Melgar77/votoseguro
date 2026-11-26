@@ -165,15 +165,232 @@ OFFICIAL_KB_CHUNKS: List[dict[str, Any]] = [
             "quedan registradas con fines de fiscalización en la bandeja notification_outbox."
         ),
     },
+    {
+        "doc_id": "DOC-13",
+        "slug": "pasos-para-votar-cliente",
+        "title": "Cómo Emitir el Voto Paso a Paso (Cliente / Votante)",
+        "audience": "VOTER",
+        "keywords": "votar voto boto botar sufragar emitir paso a paso cabina papeleta credencial cliente votante",
+        "content": (
+            "Pasos para emitir su voto como Votante en VotoSeguro:\n"
+            "1. Active su registro mediante el enlace único (/register/:token) o autoinscripción (/elections/:id/self-register) si está habilitada, y obtenga su credencial secreta de un solo uso (formato VS-XXXX-XXXX-XXXX).\n"
+            "2. Cuando la elección esté en estado VOTING_OPEN, ingrese a la Cabina de Votación en /vote.\n"
+            "3. Introduzca su Cédula de Identidad (CI) y su Código de Credencial Secreto.\n"
+            "4. Revise la papeleta generada automáticamente según su grupo y unidad, y seleccione por cada cargo a su candidato, 'Voto en Blanco' o 'Voto Nulo' (puede activar el Modo Voz Asistida si lo requiere).\n"
+            "5. Presione 'Confirmar y Emitir Mi Voto'. El navegador cifra su papeleta con Paillier sin vincular su identidad.\n"
+            "6. Guarde o descargue su código de comprobante (receipt_hash) para verificar su inclusión en /verify-receipt."
+        ),
+    },
+    {
+        "doc_id": "DOC-14",
+        "slug": "guia-encargado-delegado-segmento",
+        "title": "Guía Operativa del Encargado / Delegado de Segmento (ADMIN_SEGMENT)",
+        "audience": "OPERATOR",
+        "keywords": "encargado operador delegado segmento admin_segment padron votantes monitoreo resultados",
+        "content": (
+            "Funciones y pasos para el Encargado / Delegado de Segmento (rol ADMIN_SEGMENT):\n"
+            "1. Inicie sesión en /login y acceda al espacio institucional /workspace para seleccionar la elección asignada.\n"
+            "2. Gestión del Padrón (/elections/:id/voters): importe listas CSV de votantes, revise duplicados, apruebe o rechace solicitudes de autoinscripción (PENDING_APPROVAL) y envíe enlaces de activación.\n"
+            "3. Cronograma y Fases (/elections/:id/schedule): consulte o gestione las ventanas operativas autorizadas para su alcance.\n"
+            "4. Monitoreo en Vivo (/elections/:id/live): supervise la participación en tiempo real sin ver resultados parciales mientras la urna esté abierta.\n"
+            "5. Resultados e Integridad (/elections/:id/results y /elections/:id/integrity): consulte el escrutinio tras el cierre y verifique los sellos criptográficos."
+        ),
+    },
+    {
+        "doc_id": "DOC-15",
+        "slug": "guia-admin-general-configuracion",
+        "title": "Guía del Administrador General (ADMIN_GENERAL): Estructura, Candidatos y Ceremonia",
+        "audience": "ADMIN",
+        "keywords": "admin administrador general configurar candidatos cargos estructura nodos ceremonia llaves publicar delegados",
+        "content": (
+            "Pasos para configurar una elección como Administrador General (rol ADMIN_GENERAL):\n"
+            "1. Ingrese en /login y abra su espacio institucional en /workspace para crear o seleccionar la elección.\n"
+            "2. Estructura y Nodos (/elections/:id/structure): defina los grupos de votantes (estamentos), niveles jerárquicos y nodos organizacionales.\n"
+            "3. Cargos y Candidatos (/elections/:id/candidates): cree los cargos electorales, circunscripciones y registre a los candidatos con su orden oficial en papeleta.\n"
+            "4. Delegados (/elections/:id/delegates): asigne encargados o delegados de segmento (ADMIN_SEGMENT) y observadores si corresponde.\n"
+            "5. Ceremonia Criptográfica (/elections/:id/ceremony): genere el par de llaves Paillier y reparta los fragmentos de Shamir (k de n) entre los custodios.\n"
+            "6. Publique la elección para sellar el config_hash y pasar a estado SCHEDULED."
+        ),
+    },
+    {
+        "doc_id": "DOC-16",
+        "slug": "abrir-cerrar-registro-votacion-escrutinio",
+        "title": "Cómo Abrir y Cerrar Registro, Votación y Escrutinio (Admin / Encargado)",
+        "audience": "ADMIN",
+        "keywords": "abrir cerrar iniciar finalizar registro padron votacion urna escrutinio shamir tallied",
+        "content": (
+            "Pasos para controlar las fases de una elección en VotoSeguro (ADMIN_GENERAL / ADMIN_SEGMENT según permisos):\n"
+            "1. Abrir Registro (REGISTRATION_OPEN): desde /elections/:id/voters o /elections/:id/schedule inicie el período de empadronamiento.\n"
+            "2. Cerrar Padrón (REGISTRATION_CLOSED): en /elections/:id/voters pulse 'Cerrar Registro Ahora' para congelar la lista ACTIVE y sellar roll_hash y merkle_root.\n"
+            "3. Abrir Votación (VOTING_OPEN): habilite la jornada de sufragio desde /elections/:id/voters o /elections/:id/schedule para emitir credenciales y abrir /vote.\n"
+            "4. Cerrar Urnas (VOTING_CLOSED): al concluir la jornada, cierre la votación desde el panel de control.\n"
+            "5. Desbloqueo y Escrutinio (TALLIED): en el módulo de escrutinio/ceremonia, reúna al menos k fragmentos válidos de Shamir de los custodios para descifrar los totales homomórficos y publicar los resultados en /elections/:id/results."
+        ),
+    },
+    {
+        "doc_id": "DOC-17",
+        "slug": "portal-publico-auditoria-observador",
+        "title": "Portal Público de Auditoría e Integridad (/audit-portal)",
+        "audience": "PUBLIC",
+        "keywords": "auditoria observador observer portal publico sellos hash ledger integridad verificar",
+        "content": (
+            "Pasos para auditar una elección sin requerir credenciales especiales (Observador o Ciudadano):\n"
+            "1. Ingrese a /audit-portal (o /elections/:id/integrity si tiene rol autenticado).\n"
+            "2. Seleccione la elección publicada o finalizada.\n"
+            "3. Verifique los sellos criptográficos públicos: ConfigHash, RollHash, MerkleRoot, KeyCeremonyHash y TallyCeremonyHash.\n"
+            "4. Ejecute la verificación de cadena de hashes del ledger y revise el historial de cambios de cronograma.\n"
+            "5. Si emitió un voto, puede validar su comprobante individual en /verify-receipt."
+        ),
+    },
+    {
+        "doc_id": "DOC-18",
+        "slug": "consola-platform-admin",
+        "title": "Consola de Administrador de Plataforma (PLATFORM_ADMIN)",
+        "audience": "ADMIN",
+        "keywords": "platform_admin plataforma consola organizaciones solicitudes inquilinos ia nodo",
+        "content": (
+            "Pasos para el Administrador de Plataforma (rol PLATFORM_ADMIN):\n"
+            "1. Inicie sesión en /login con su cuenta de plataforma para acceder a /platform/console.\n"
+            "2. Revise y apruebe o rechace las solicitudes institucionales de nuevas elecciones enviadas desde /request-election.\n"
+            "3. Supervise las organizaciones registradas y la configuración global del motor de IA cuando corresponda."
+        ),
+    },
 ]
 
+_STOPWORDS = {
+    "como", "puedo", "hacer", "quiero", "tengo", "para", "donde", "cual", "cuales",
+    "quien", "cuando", "sobre", "entre", "desde", "hasta", "esta", "este", "esto",
+    "esos", "esas", "algo", "unos", "unas", "unos", "pero", "porque", "por", "con",
+    "sin", "del", "las", "los", "una", "uno", "que", "soy", "hay", "son", "ser",
+    "esta", "estoy", "hago", "hacen", "debo", "debe", "mas", "muy", "esa", "ese",
+    "sistema", "plataforma", "pagina", "web", "app", "votoseguro",
+}
 
-def _tokenize(text: str) -> List[str]:
-    """Tokeniza y normaliza un texto eliminando tildes y símbolos."""
+_SYNONYM_MAP = {
+    "boto": "voto",
+    "botar": "votar",
+    "botacion": "votacion",
+    "sufrago": "voto",
+    "sufragar": "votar",
+    "sufragio": "voto",
+    "eleccion": "votacion",
+    "boleta": "papeleta",
+    "tarjeton": "papeleta",
+    "ticket": "comprobante",
+    "recibo": "comprobante",
+    "codigo": "credencial",
+    "clave": "credencial",
+    "carnet": "cedula",
+    "dni": "cedula",
+    "identidad": "cedula",
+    "encargado": "delegado",
+    "operador": "delegado",
+    "moderador": "delegado",
+    "responsable": "delegado",
+    "admin": "administrador",
+    "administradora": "administrador",
+    "cliente": "votante",
+    "usuario": "votante",
+    "elector": "votante",
+    "ciudadano": "votante",
+    "configuro": "configurar",
+    "configura": "configurar",
+    "configuracion": "configurar",
+    "crear": "configurar",
+    "creo": "configurar",
+    "agregar": "configurar",
+    "agrego": "configurar",
+    "poner": "configurar",
+    "pongo": "configurar",
+    "subir": "importar",
+    "subo": "importar",
+    "abro": "abrir",
+    "iniciar": "abrir",
+    "inicio": "abrir",
+    "empezar": "abrir",
+    "cierro": "cerrar",
+    "finalizar": "cerrar",
+    "terminar": "cerrar",
+    "verifico": "verificar",
+    "revisar": "verificar",
+    "reviso": "verificar",
+    "chequear": "verificar",
+    "comprobar": "verificar",
+    "entiendo": "verificar",
+    "audio": "voz",
+    "hablar": "voz",
+    "ciego": "accesibilidad",
+    "discapacidad": "accesibilidad",
+    "fechas": "cronograma",
+    "horario": "cronograma",
+    "plazo": "cronograma",
+    "lista": "padron",
+    "inscritos": "padron",
+    "empadronamiento": "registro",
+    "inscripcion": "registro",
+    "conteo": "escrutinio",
+    "contar": "escrutinio",
+    "ganador": "resultados",
+    "fragmento": "shamir",
+    "llave": "ceremonia",
+    "llaves": "ceremonia",
+}
+
+
+def _normalize_text(text: str) -> str:
     nfkd = unicodedata.normalize("NFKD", text)
-    clean = "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
-    tokens = re.findall(r"\b[a-z0-9_]{3,}\b", clean)
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
+
+
+def _tokenize(text: str, remove_stopwords: bool = False) -> List[str]:
+    """Tokeniza y normaliza un texto eliminando tildes, signos y opcionalmente stopwords."""
+    clean = _normalize_text(text)
+    raw_tokens = re.findall(r"[a-z0-9_]{2,}", clean)
+    tokens: List[str] = []
+    for tok in raw_tokens:
+        if remove_stopwords and tok in _STOPWORDS:
+            continue
+        mapped = _SYNONYM_MAP.get(tok, tok)
+        tokens.append(mapped)
     return tokens
+
+
+def detect_query_roles(query: str, default_role: str = "VOTER") -> List[str]:
+    """Detecta los roles mencionados explícita o implícitamente en la consulta."""
+    q_norm = _normalize_text(query)
+    roles: List[str] = []
+    if any(w in q_norm for w in ["votante", "cliente", "elector", "mi voto", "quiero votar", "como boto", "como voto", "comprobante", "papeleta", "cabina"]):
+        roles.append("VOTER")
+    if any(w in q_norm for w in ["encargado", "operador", "delegado", "segmento"]):
+        roles.append("OPERATOR")
+    if any(w in q_norm for w in ["admin", "administrador", "plataforma", "candidato", "ceremonia", "estructura", "configur"]):
+        roles.append("ADMIN")
+    if not roles:
+        roles.append(default_role)
+    return roles
+
+
+def is_followup_query(query: str) -> bool:
+    """Detecta si el mensaje es una repregunta corta o dependiente del turno anterior."""
+    q_norm = _normalize_text(query).strip()
+    followup_markers = [
+        "despues", "luego", "siguiente", "y si", "y que", "y como", "y donde",
+        "y para", "y eso", "de eso", "ahi que", "entonces", "paso siguiente",
+        "como asi", "no entendi", "explica", "mas detalle",
+    ]
+    tokens = _tokenize(query, remove_stopwords=True)
+    return len(tokens) <= 2 or any(m in q_norm for m in followup_markers)
+
+
+def _token_matches(q_tok: str, target_tokens: List[str]) -> bool:
+    if q_tok in target_tokens:
+        return True
+    if len(q_tok) >= 4:
+        prefix = q_tok[:5] if len(q_tok) >= 5 else q_tok[:4]
+        for t in target_tokens:
+            if len(t) >= 4 and (t.startswith(prefix) or q_tok.startswith(t[:4])):
+                return True
+    return False
 
 
 def retrieve_relevant_chunks(
@@ -182,13 +399,16 @@ def retrieve_relevant_chunks(
     context_role: str = "VOTER",
 ) -> List[dict[str, Any]]:
     """
-    Recupera los fragmentos más relevantes de la base de conocimiento curada usando
-    similitud léxica ponderada (TF-IDF aproximado con bonus de título y palabras clave).
+    Recupera los fragmentos más relevantes de la base de conocimiento usando
+    normalización de sinónimos/typos, coincidencia por raíz y filtro de stopwords.
     """
-    query_tokens = _tokenize(query)
+    query_tokens = _tokenize(query, remove_stopwords=True)
+    if not query_tokens:
+        query_tokens = _tokenize(query, remove_stopwords=False)
     if not query_tokens:
         return []
 
+    inferred_roles = detect_query_roles(query, default_role=context_role)
     scored_chunks: List[Tuple[float, dict[str, Any]]] = []
 
     for chunk in OFFICIAL_KB_CHUNKS:
@@ -196,36 +416,33 @@ def retrieve_relevant_chunks(
         title_tokens = _tokenize(chunk["title"])
         keyword_tokens = _tokenize(chunk["keywords"])
 
-        # Ponderación por campo
         score = 0.0
         matched_tokens = 0
 
         for q_tok in query_tokens:
             tok_matches = 0
-            if q_tok in keyword_tokens:
+            if _token_matches(q_tok, keyword_tokens):
                 score += 3.0
                 tok_matches += 1
-            if q_tok in title_tokens:
+            if _token_matches(q_tok, title_tokens):
                 score += 2.5
                 tok_matches += 1
-            if q_tok in content_tokens:
-                freq = content_tokens.count(q_tok)
+            if _token_matches(q_tok, content_tokens):
+                freq = sum(1 for ct in content_tokens if _token_matches(q_tok, [ct]))
                 score += 1.0 + min(freq * 0.2, 1.0)
                 tok_matches += 1
 
             if tok_matches > 0:
                 matched_tokens += 1
 
-        # Si no hubo ninguna coincidencia
         if matched_tokens == 0:
             continue
 
-        # Normalizar por longitud de la consulta para evitar sesgos
-        normalized_score = score / (len(query_tokens) * 3.5)
+        normalized_score = score / (len(query_tokens) * 3.0)
 
-        # Ajuste de audiencia
-        if chunk.get("audience") == context_role or chunk.get("audience") == "PUBLIC":
-            normalized_score *= 1.15
+        audience = chunk.get("audience")
+        if audience in inferred_roles or audience == "PUBLIC":
+            normalized_score *= 1.2
 
         scored_chunks.append((
             min(normalized_score, 1.0),
@@ -234,7 +451,8 @@ def retrieve_relevant_chunks(
                 "slug": chunk["slug"],
                 "title": chunk["title"],
                 "content": chunk["content"],
-                "score": round(normalized_score, 4),
+                "audience": audience,
+                "score": round(min(normalized_score, 1.0), 4),
             }
         ))
 

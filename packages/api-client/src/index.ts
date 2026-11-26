@@ -1104,10 +1104,16 @@ export interface DocumentCitation {
   section?: string;
 }
 
+export interface AssistantConversationTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export interface RagAssistantRequest {
   question: string;
-  context_role?: 'VOTER' | 'ADMIN' | 'PUBLIC';
+  context_role?: 'VOTER' | 'ADMIN' | 'OPERATOR' | 'PUBLIC';
   election_id?: string | null;
+  history?: AssistantConversationTurn[];
 }
 
 export type AssistantQuestionRequest = RagAssistantRequest;
