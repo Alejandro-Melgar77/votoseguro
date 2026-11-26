@@ -453,7 +453,7 @@ def retrieve_relevant_chunks(
             normalized_score *= 1.35
 
         scored_chunks.append((
-            min(normalized_score, 1.0),
+            normalized_score,
             {
                 "doc_id": chunk["doc_id"],
                 "slug": chunk["slug"],
