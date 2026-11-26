@@ -100,6 +100,14 @@ export const ElectoralFaqAssistantWidget: React.FC<ElectoralFaqAssistantWidgetPr
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 leading-relaxed text-[11px]">
               <strong>💡 Asistente Estrictamente Documental:</strong> Responde exclusivamente con base en los
               manuales y procedimientos auditados de VotoSeguro. No emite opiniones políticas ni predicciones.
+              <div className="mt-2">
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-lg bg-[#0B132B] hover:bg-slate-800 text-white text-xs font-semibold transition-colors"
+                >
+                  Agente
+                </button>
+              </div>
             </div>
 
             {/* Preguntas Frecuentes Rápidas */}
